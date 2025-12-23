@@ -14,10 +14,18 @@ const NODE_TYPE_ICONS = {
     "OPERATION": "fa fa-cog"                // gear for operation
 };
 
+function reset_tree_html(frm) {
+    const $parent = $(frm.fields_dict["bom_tree"].wrapper);
+    $parent.empty();
+}
+
 function get_tree(frm) {
+    reset_tree_html(frm);
+
     if (frm.is_new() || !frm.doc.item_code) {
         return;
     }
+    
     let $parent = $(frm.fields_dict["bom_tree"].wrapper);
     $parent.empty();
     frappe.call({
