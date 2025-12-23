@@ -1,0 +1,96 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "prompt",
+ "creation": "2025-12-23 06:22:28.493819",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "bom_tree_tab",
+  "item_code",
+  "column_break_ahsu",
+  "company",
+  "section_break_catz",
+  "bom_tree",
+  "items_tab",
+  "items"
+ ],
+ "fields": [
+  {
+   "fieldname": "bom_tree",
+   "fieldtype": "HTML"
+  },
+  {
+   "fieldname": "items_tab",
+   "fieldtype": "Tab Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "bom_tree_tab",
+   "fieldtype": "Tab Break",
+   "label": "BOM Tree"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item",
+   "reqd": 1,
+   "set_only_once": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_catz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_ahsu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Multilevel BOM Creator Item"
+  }
+ ],
+ "grid_page_length": 50,
+ "hide_toolbar": 1,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-12-23 13:57:28.755188",
+ "modified_by": "Administrator",
+ "module": "Friendly Erp",
+ "name": "Multilevel BOM Creator",
+ "naming_rule": "Set by user",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
