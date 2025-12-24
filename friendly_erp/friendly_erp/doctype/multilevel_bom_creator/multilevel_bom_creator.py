@@ -23,7 +23,14 @@ class MultilevelBOMCreator(Document):
         company: DF.Link
         item_code: DF.Link
         items: DF.Table[MultilevelBOMCreatorItem]
+        qty: DF.Float
     # end: auto-generated types
+
+    def validate(self) -> None:
+        if not self.item_code:
+            frappe.throw("Item Code is required.")
+        if not self.company:
+            frappe.throw("Company is required.")
 
     def before_save(self) -> None:
         if not self.items and self.item_code:
@@ -35,7 +42,7 @@ class MultilevelBOMCreator(Document):
                 display_name=self.item_code,
                 sequence=0,
                 item_code=self.item_code,
-                quantity=1,
+                quantity=self.qty or 1.0,
                 uom="",
             )
             self.add_root_item(node)

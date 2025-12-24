@@ -3,9 +3,18 @@
 
 frappe.ui.form.on("Multilevel BOM Creator", {
     refresh(frm) {
-        get_tree(frm);
+        setup_bom_creator(frm);
     },
 });
+
+function setup_bom_creator(frm) {
+    reset_tree_html(frm);
+    if (!frm.is_new()) {
+        get_tree(frm);
+    } else {
+        make_new_entry(frm);
+    }
+}
 
 const NODE_TYPE_ICONS = {
     "SUB_ASSEMBLY": "fa fa-cubes",          // multi cube icon
@@ -13,6 +22,72 @@ const NODE_TYPE_ICONS = {
     "COMPOUND_OPERATION": "fa fa-cogs",    // multi gear icon
     "OPERATION": "fa fa-cog"                // gear for operation
 };
+
+function make_new_entry(frm) {
+    let dialog = new frappe.ui.Dialog({
+        title: __("Multilevel BOM Creator"),
+        fields: [
+            {
+                label: __("Name"),
+                fieldtype: "Data",
+                fieldname: "name",
+                reqd: 1,
+            },
+            { fieldtype: "Column Break" },
+            {
+                label: __("Company"),
+                fieldtype: "Link",
+                fieldname: "company",
+                options: "Company",
+                reqd: 1,
+                default: frappe.defaults.get_user_default("Company"),
+            },
+            { fieldtype: "Section Break" },
+            {
+                label: __("Item Code (Final Product)"),
+                fieldtype: "Link",
+                fieldname: "item_code",
+                options: "Item",
+                reqd: 1,
+            },
+            { fieldtype: "Column Break" },
+            {
+                label: __("Quantity"),
+                fieldtype: "Float",
+                fieldname: "qty",
+                reqd: 1,
+                default: 1.0,
+            },
+            // { fieldtype: "Section Break" },
+            // {
+            //     label: __("Currency"),
+            //     fieldtype: "Link",
+            //     fieldname: "currency",
+            //     options: "Currency",
+            //     reqd: 1,
+            //     default: frappe.defaults.get_global_default("currency"),
+            // },
+            // { fieldtype: "Column Break" },
+            // {
+            //     label: __("Conversion Rate"),
+            //     fieldtype: "Float",
+            //     fieldname: "conversion_rate",
+            //     reqd: 1,
+            //     default: 1.0,
+            // },
+        ],
+        primary_action_label: __("Create"),
+        primary_action: (values) => {
+            values.doctype = frm.doc.doctype;
+            frappe.db.insert(values).then((doc) => {
+                frappe.set_route("Form", doc.doctype, doc.name);
+            });
+        },
+    });
+
+    dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
+    dialog.show();
+}
 
 function reset_tree_html(frm) {
     const $parent = $(frm.fields_dict["bom_tree"].wrapper);
@@ -25,7 +100,7 @@ function get_tree(frm) {
     if (frm.is_new() || !frm.doc.item_code) {
         return;
     }
-    
+
     let $parent = $(frm.fields_dict["bom_tree"].wrapper);
     $parent.empty();
     frappe.call({
