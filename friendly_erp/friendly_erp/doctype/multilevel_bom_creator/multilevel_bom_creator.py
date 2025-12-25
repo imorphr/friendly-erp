@@ -4,7 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
-    BOMTree, 
+    BOMTree,
     BOMTreeFactory
 )
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_node import BOMTreeSubAssemblyNode
@@ -21,6 +21,7 @@ class MultilevelBOMCreator(Document):
         from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item.multilevel_bom_creator_item import MultilevelBOMCreatorItem
 
         company: DF.Link
+        description: DF.LongText | None
         item_code: DF.Link
         items: DF.Table[MultilevelBOMCreatorItem]
         qty: DF.Float
@@ -34,50 +35,79 @@ class MultilevelBOMCreator(Document):
 
     def before_save(self) -> None:
         if not self.items and self.item_code:
-            node = BOMTreeSubAssemblyNode(
-                node_guid=frappe.generate_hash(),
-                parent_node_guid=None,
-                node_type="SUB_ASSEMBLY",
-                name=self.item_code,
-                display_name=self.item_code,
-                sequence=0,
-                item_code=self.item_code,
-                quantity=self.qty or 1.0,
-                uom="",
-            )
-            self.add_root_item(node)
-    
-    def add_root_item(self, item: BOMTreeSubAssemblyNode) -> None:
+            self.add_root_item()
+
+    def add_root_item(self) -> None:
         """Add the root item to the BOM creator document."""
         if self.items:
             frappe.throw("Root item already exists.")
-        if self.item_code != item.item_code:
-            frappe.throw("Root item code does not match the BOM creator's item code.")
-        if item.node_type != "SUB_ASSEMBLY":
-            frappe.throw("Root item must be a Sub-Assembly.")
-        if item.parent_node_guid is not None:
-            frappe.throw("Root item cannot have a parent node.")
-        self.append("items", {
-            "node_guid": item.node_guid,
-            "parent_node_guid": item.parent_node_guid,
-            "node_type": item.node_type,
-            "item_code": item.item_code,
-            "quantity": item.quantity,
-            "uom": item.uom,
-        })        
-        # self.save()
+
+        item = frappe.new_doc("Multilevel BOM Creator Item")
+        item.node_unique_id = frappe.generate_hash()
+        item.parent_node_unique_id = None
+        item.node_type = "SUB_ASSEMBLY"
+        item.item_code = self.item_code
+        item.quantity = self.qty or 1.0
+        item.uom = ""
+        item.sequence = 0
+        self.append("items", item)
+
+    def add_item(self, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
+        """Add a new item under the specified parent node."""
+        tree: BOMTree = BOMTreeFactory(self).create()
+        parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
+        if not parent_node:
+            frappe.throw(
+                f"Parent node with ID {parent_node_unique_id} not found.")
+
+        if not parent_node.can_add_child_item:
+            frappe.throw(
+                f"Cannot add item under node '{parent_node.display_name}'. "
+                f"Adding child items is not allowed for this node."
+            )
+
+        parent_item = next((
+            item for item in self.items if item.node_unique_id == parent_node_unique_id
+        ), None)
+
+        # As child is being added, parent must be a Sub-Assembly
+        if parent_item.node_type != "SUB_ASSEMBLY":
+            parent_item.node_type = "SUB_ASSEMBLY"
+
+        item = frappe.new_doc("Multilevel BOM Creator Item")
+        item.node_unique_id = frappe.generate_hash()
+        item.parent_node_unique_id = parent_node_unique_id
+        item.node_type = "ITEM"
+        item.item_code = item_code
+        item.quantity = quantity
+        item.uom = uom
+        item.sequence = self._get_child_sequence(parent_node_unique_id)
+        self.append("items", item)
+
+    def _get_child_sequence(self, parent_node_unique_id: str) -> int:
+        """Get the next sequence number for a child item under the specified parent node."""
+        child_items = [
+            item for item in self.items if item.parent_node_unique_id == parent_node_unique_id
+        ]
+        if not child_items:
+            return 0
+        return max(item.sequence for item in child_items) + 1
+
 
 @frappe.whitelist()
 def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
-    multilevel_bom_creator = frappe.get_doc("Multilevel BOM Creator", multilevel_bom_creator_name)
+    multilevel_bom_creator = frappe.get_doc(
+        "Multilevel BOM Creator", multilevel_bom_creator_name)
     tree: BOMTree = BOMTreeFactory(multilevel_bom_creator).create()
     return tree.to_depth_first_flat_list()
 
 
-# @frappe.whitelist()
-# def add_root_item(bom_creator_name: str, item: dict) -> None:
-#     """Whitelisted function to add root item to BOM creator."""
-#     bom_creator = frappe.get_doc("Multilevel BOM Creator", bom_creator_name)
-#     item_node = BOMTreeSubAssemblyNode(**item)
-#     bom_creator.add_root_item(item_node)
-
+@frappe.whitelist()
+def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
+    multilevel_bom_creator = frappe.get_doc(
+        "Multilevel BOM Creator", multilevel_bom_creator_name)
+    multilevel_bom_creator.add_item(
+        parent_node_unique_id, item_code, quantity, uom)
+    # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
+    multilevel_bom_creator.flags.notify_update = False
+    multilevel_bom_creator.save()

@@ -47,9 +47,27 @@ function fetch_bom_tree_data(frm, tree_helper) {
 
 //============ Tree item handlers ============
 function add_item(frm, parent) {
-    // frappe.msgprint(`Add Item clicked for ${parent.name}`);
-    frappe.show_alert(`Add Item clicked for ${parent.name}`);
-    frm.reload_doc();
+    const dialog = new NewChildItemDialogFactory(frm, (values, frm) => {
+        frappe.call({
+            method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_item",
+            args: {
+                multilevel_bom_creator_name: frm.doc.name,
+                parent_node_unique_id: parent.node_unique_id,
+                item_code: values.item_code,
+                quantity: values.qty,
+                uom: "" // TODO: fetch UOM from item master
+            },
+            freeze: true,
+            freeze_message: __("Adding Item..."),
+            callback: function (r) {
+                if (!r.exc) {
+                    frm.reload_doc();
+                    dialog.hide();
+                }
+            }
+        });
+    }).create();
+    dialog.show();
 }
 
 function add_existing_sub_assembly(frm, parent) {
@@ -73,81 +91,11 @@ function delete_operation(frm, operation) {
 }
 
 //============ Helper Classes ============
-class NewFormDialogFactory {
-    constructor(frm, action) {
-        this.frm = frm;
-        this.action = action;
-    }
-
-    create() {
-        const dialog = new frappe.ui.Dialog({
-            title: __("Multilevel BOM Creator"),
-            fields: [
-                {
-                    label: __("Name"),
-                    fieldtype: "Data",
-                    fieldname: "name",
-                    reqd: 1,
-                },
-                { fieldtype: "Column Break" },
-                {
-                    label: __("Company"),
-                    fieldtype: "Link",
-                    fieldname: "company",
-                    options: "Company",
-                    reqd: 1,
-                    default: frappe.defaults.get_user_default("Company"),
-                },
-                { fieldtype: "Section Break" },
-                {
-                    label: __("Item Code (Final Product)"),
-                    fieldtype: "Link",
-                    fieldname: "item_code",
-                    options: "Item",
-                    reqd: 1,
-                },
-                { fieldtype: "Column Break" },
-                {
-                    label: __("Quantity"),
-                    fieldtype: "Float",
-                    fieldname: "qty",
-                    reqd: 1,
-                    default: 1.0,
-                },
-                // { fieldtype: "Section Break" },
-                // {
-                //     label: __("Currency"),
-                //     fieldtype: "Link",
-                //     fieldname: "currency",
-                //     options: "Currency",
-                //     reqd: 1,
-                //     default: frappe.defaults.get_global_default("currency"),
-                // },
-                // { fieldtype: "Column Break" },
-                // {
-                //     label: __("Conversion Rate"),
-                //     fieldtype: "Float",
-                //     fieldname: "conversion_rate",
-                //     reqd: 1,
-                //     default: 1.0,
-                // },
-            ],
-            primary_action_label: __("Create"),
-            primary_action: (values) => {
-                this.action(values, this.frm);
-            },
-        });
-
-        dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
-        return dialog;
-    }
-}
-
 class BOMTreeHelper {
     constructor(frm) {
         this.frm = frm;
         this.data = [];
-        this.data_map = {}; // node_guid → data object map for quick lookup
+        this.data_map = {}; // node_unique_id → data object map for quick lookup
         this.data_table = null;
         this.current_open_menu = null;
         this.NODE_TYPE_ICONS = {
@@ -192,12 +140,12 @@ class BOMTreeHelper {
                         <div class="dropdown bom-row-dropdown">
                             <span
                                 class="row-action-menu"
-                                data-nodeguid="${data.node_guid}"
+                                data-nodeuniqueid="${data.node_unique_id}"
                                 style="cursor:pointer;padding: 0 8px;"
                             >
                             ⋮
                             </span>
-                            <div data-nodeguid="${data.node_guid}" class="dropdown-menu">
+                            <div data-nodeuniqueid="${data.node_unique_id}" class="dropdown-menu">
                             </div>
                         </div>
                     `;
@@ -219,7 +167,7 @@ class BOMTreeHelper {
         this.data = data;
         this.data_map = {};
         data.forEach(item => {
-            this.data_map[item.node_guid] = item;
+            this.data_map[item.node_unique_id] = item;
         });
     }
 
@@ -297,8 +245,8 @@ class BOMTreeHelper {
     }
 
     render_row_context_menu($menu) {
-        const node_guid = $menu.data('nodeguid');
-        const menu_ctx = this.data_map[node_guid];
+        const node_unique_id = $menu.data('nodeuniqueid');
+        const menu_ctx = this.data_map[node_unique_id];
         const items = MenuProvider.getRowMenuItems(menu_ctx) || [];
 
         $menu.empty();
@@ -334,24 +282,26 @@ class MenuProvider {
 
         const items = [];
 
-        if (ctx.node_type === "ITEM") {
+        if (ctx.can_add_child_item) {
             items.push(
-                { label: "Add Operation", action: add_operation },
                 { label: "Add Item", action: add_item },
                 { label: "Add Existing Sub-Assembly", action: add_existing_sub_assembly },
-                { label: "Delete", action: delete_item }
             );
         }
-        else if (ctx.node_type === "SUB_ASSEMBLY") {
-            if (!ctx.parent_node_guid || !ctx.bom_no) {
+
+        if (ctx.can_add_child_operation) {
+            items.push(
+                { label: "Add Operation", action: add_operation },
+            );
+        }
+
+        if (ctx.can_delete) {
+            if (ctx.node_type === "ITEM") {
                 items.push(
-                    { label: "Add Operation", action: add_operation },
-                    { label: "Add Item", action: add_item },
-                    { label: "Add Existing Sub-Assembly", action: add_existing_sub_assembly }
+                    { label: "Delete", action: delete_item }
                 );
             }
-
-            if (ctx.parent_node_guid) {
+            else if (ctx.node_type === "SUB_ASSEMBLY") {
                 items.push(
                     { label: "Delete", action: delete_sub_assembly }
                 );
@@ -359,5 +309,129 @@ class MenuProvider {
         }
 
         return items;
+    }
+}
+
+class NewFormDialogFactory {
+    constructor(frm, action) {
+        this.frm = frm;
+        this.action = action;
+    }
+
+    create() {
+        const dialog = new frappe.ui.Dialog({
+            title: __("Multilevel BOM Creator"),
+            fields: [
+                {
+                    label: __("Name"),
+                    fieldtype: "Data",
+                    fieldname: "name",
+                    reqd: 1,
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Company"),
+                    fieldtype: "Link",
+                    fieldname: "company",
+                    options: "Company",
+                    reqd: 1,
+                    default: frappe.defaults.get_user_default("Company"),
+                },
+                { fieldtype: "Section Break" },
+                {
+                    label: __("Item Code (Final Product)"),
+                    fieldtype: "Link",
+                    fieldname: "item_code",
+                    options: "Item",
+                    reqd: 1,
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Quantity"),
+                    fieldtype: "Float",
+                    fieldname: "qty",
+                    reqd: 1,
+                    default: 1.0,
+                },
+                // { fieldtype: "Section Break" },
+                // {
+                //     label: __("Currency"),
+                //     fieldtype: "Link",
+                //     fieldname: "currency",
+                //     options: "Currency",
+                //     reqd: 1,
+                //     default: frappe.defaults.get_global_default("currency"),
+                // },
+                // { fieldtype: "Column Break" },
+                // {
+                //     label: __("Conversion Rate"),
+                //     fieldtype: "Float",
+                //     fieldname: "conversion_rate",
+                //     reqd: 1,
+                //     default: 1.0,
+                // },
+            ],
+            primary_action_label: __("Create"),
+            primary_action: (values) => {
+                this.action(values, this.frm);
+            },
+        });
+
+        dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
+        return dialog;
+    }
+}
+
+class NewChildItemDialogFactory {
+    constructor(frm, action) {
+        this.frm = frm;
+        this.action = action;
+    }
+
+    create() {
+        const dialog = new frappe.ui.Dialog({
+            title: __("Add New Item"),
+            fields: [
+                {
+                    label: __("Item Code (Final Product)"),
+                    fieldtype: "Link",
+                    fieldname: "item_code",
+                    options: "Item",
+                    reqd: 1,
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Quantity"),
+                    fieldtype: "Float",
+                    fieldname: "qty",
+                    reqd: 1,
+                    default: 1.0,
+                },
+                // { fieldtype: "Section Break" },
+                // {
+                //     label: __("Currency"),
+                //     fieldtype: "Link",
+                //     fieldname: "currency",
+                //     options: "Currency",
+                //     reqd: 1,
+                //     default: frappe.defaults.get_global_default("currency"),
+                // },
+                // { fieldtype: "Column Break" },
+                // {
+                //     label: __("Conversion Rate"),
+                //     fieldtype: "Float",
+                //     fieldname: "conversion_rate",
+                //     reqd: 1,
+                //     default: 1.0,
+                // },
+            ],
+            primary_action_label: __("Create"),
+            primary_action: (values) => {
+                this.action(values, this.frm);
+            },
+        });
+
+        dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
+        return dialog;
     }
 }

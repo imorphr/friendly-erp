@@ -4,8 +4,9 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item.multilevel_bo
 
 
 class BOMTree:
-    def __init__(self, root_node: BOMTreeNode):
+    def __init__(self, root_node: BOMTreeNode, node_map: dict = None):
         self.root = root_node
+        self.node_map = node_map if node_map is not None else {}
 
     def to_dict(self) -> dict:
         """
@@ -20,6 +21,9 @@ class BOMTree:
         data["children"] = [
             self._to_dict_recursive(child) for child in node.children
         ]
+        for child in data["children"]:
+            # Remove parent references to avoid circular references in JSON
+            child.pop("parent_node_ref", None)
 
         return data
 
@@ -34,11 +38,16 @@ class BOMTree:
 
         # Remove children property from flat row
         row.pop("children", None)
+        # Remove parent reference to avoid circular refs
+        row.pop("parent_node_ref", None)
 
         rows.append(row)
 
         for child in row_children:
             self._to_depth_first_flat_list_recursive(child, rows)
+
+    def find_node_by_unique_id(self, node_unique_id: str) -> BOMTreeNode | None:
+        return self.node_map.get(node_unique_id, None)
 
 
 class BOMTreeFactory:
@@ -55,26 +64,29 @@ class BOMTreeFactory:
             frappe.throw("BOM Creator document is required to build BOM Tree.")
 
         root_item = next((
-            item for item in self.items if not item.parent_node_guid
+            item for item in self.items if not item.parent_node_unique_id
         ), None)
         if not root_item:
             frappe.throw("BOM Creator document has no root item.")
 
         root_node = BOMTreeNodeFactory.create_from_multilevel_bom_creator_item(
-            root_item)
-        self._add_child_item_nodes_recursively(root_node)
+            root_item, None)
+        node_map = {root_node.node_unique_id: root_node}
 
-        tree = BOMTree(root_node)
+        self._add_child_item_nodes_recursively(root_node, node_map)
+
+        tree = BOMTree(root_node, node_map)
         return tree
 
-    def _add_child_item_nodes_recursively(self, parent_node: BOMTreeNode):
+    def _add_child_item_nodes_recursively(self, parent_node: BOMTreeNode, node_map: dict):
         child_items = [
-            item for item in self.items if item.parent_node_guid == parent_node.node_guid and (item.node_type == "ITEM" or item.node_type == "SUB_ASSEMBLY")
+            item for item in self.items if item.parent_node_unique_id == parent_node.node_unique_id and (item.node_type == "ITEM" or item.node_type == "SUB_ASSEMBLY")
         ]
         sorted_child_items = sorted(child_items, key=lambda x: x.sequence)
 
         for item in sorted_child_items:
             child_node = BOMTreeNodeFactory.create_from_multilevel_bom_creator_item(
-                item)
-            self._add_child_item_nodes_recursively(child_node)
+                item, parent_node)
             parent_node.add_child(child_node)
+            node_map[child_node.node_unique_id] = child_node
+            self._add_child_item_nodes_recursively(child_node, node_map)
