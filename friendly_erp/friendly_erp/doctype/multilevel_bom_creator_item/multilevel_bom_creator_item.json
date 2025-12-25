@@ -9,8 +9,8 @@
   "uom",
   "quantity",
   "column_break_fuvd",
-  "node_guid",
-  "parent_node_guid",
+  "node_unique_id",
+  "parent_node_unique_id",
   "node_type",
   "sequence",
   "section_break_xiyz",
@@ -59,17 +59,6 @@
    "fieldname": "allow_alternative_item",
    "fieldtype": "Check",
    "label": "Allow Alternative Item"
-  },
-  {
-   "fieldname": "node_guid",
-   "fieldtype": "Data",
-   "label": "Node GUID",
-   "reqd": 1
-  },
-  {
-   "fieldname": "parent_node_guid",
-   "fieldtype": "Data",
-   "label": "Parent Node GUID"
   },
   {
    "fieldname": "column_break_fuvd",
@@ -190,13 +179,24 @@
    "label": "Node Type",
    "options": "\nROOT\nITEM\nOPERATION\nSUB_ASSEMBLY\nCOMPOUND_OPERATION",
    "reqd": 1
+  },
+  {
+   "fieldname": "node_unique_id",
+   "fieldtype": "Data",
+   "label": "Node Unique ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "parent_node_unique_id",
+   "fieldtype": "Data",
+   "label": "Parent Node Unique ID"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-12-23 09:51:32.332525",
+ "modified": "2025-12-25 10:54:02.480116",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Item",

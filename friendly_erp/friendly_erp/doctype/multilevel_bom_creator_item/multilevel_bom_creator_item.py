@@ -25,10 +25,10 @@ class MultilevelBOMCreatorItem(Document):
 		is_stock_item: DF.Check
 		item_code: DF.Link | None
 		item_operation: DF.Link | None
-		node_guid: DF.Data
 		node_type: DF.Literal["", "ROOT", "ITEM", "OPERATION", "SUB_ASSEMBLY", "COMPOUND_OPERATION"]
+		node_unique_id: DF.Data
 		parent: DF.Data
-		parent_node_guid: DF.Data | None
+		parent_node_unique_id: DF.Data | None
 		parentfield: DF.Data
 		parenttype: DF.Data
 		project: DF.Link | None

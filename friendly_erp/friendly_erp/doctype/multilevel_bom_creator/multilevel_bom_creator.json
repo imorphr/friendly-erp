@@ -15,6 +15,8 @@
   "qty",
   "column_break_xkaq",
   "company",
+  "section_break_qjdf",
+  "description",
   "items_tab",
   "items"
  ],
@@ -26,7 +28,8 @@
   {
    "fieldname": "items_tab",
    "fieldtype": "Tab Break",
-   "label": "Items"
+   "label": "Items",
+   "read_only": 1
   },
   {
    "fieldname": "bom_tree_tab",
@@ -77,13 +80,22 @@
    "fieldname": "qty",
    "fieldtype": "Float",
    "label": "Quantity"
+  },
+  {
+   "fieldname": "section_break_qjdf",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Long Text",
+   "label": "Description"
   }
  ],
  "grid_page_length": 50,
  "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-24 10:22:21.113651",
+ "modified": "2025-12-25 14:01:22.825344",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",
