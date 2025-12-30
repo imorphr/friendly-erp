@@ -5,7 +5,7 @@ import frappe
 from frappe.model.document import Document
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
     BOMTree,
-    BOMTreeFactory
+    BOMCreatorTreeFactory
 )
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.tree_to_bom import TreeToBOMConverter
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item.multilevel_bom_creator_item import MultilevelBOMCreatorItem
@@ -55,7 +55,7 @@ class MultilevelBOMCreator(Document):
     def add_item(self, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
         #TODO: Cycle detection pending
-        tree: BOMTree = BOMTreeFactory(self).create()
+        tree: BOMTree = BOMCreatorTreeFactory(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
             frappe.throw(
@@ -87,7 +87,7 @@ class MultilevelBOMCreator(Document):
 
     def add_operation(self, parent_node_unique_id: str, operation_name: str, time_in_mins: float, workstation_type: str, workstation: str) -> None:
         """Add a new operation under the specified parent node."""
-        tree: BOMTree = BOMTreeFactory(self).create()
+        tree: BOMTree = BOMCreatorTreeFactory(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
             frappe.throw(
@@ -126,7 +126,7 @@ class MultilevelBOMCreator(Document):
         """
 
         # 1. Build tree
-        tree: BOMTree = BOMTreeFactory(self).create()
+        tree: BOMTree = BOMCreatorTreeFactory(self).create()
 
         # 2. Convert tree → BOMs
         converter = TreeToBOMConverter(tree, self.company)
@@ -157,7 +157,7 @@ class MultilevelBOMCreator(Document):
 def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
-    tree: BOMTree = BOMTreeFactory(multilevel_bom_creator).create()
+    tree: BOMTree = BOMCreatorTreeFactory(multilevel_bom_creator).create()
     return tree.to_depth_first_flat_list()
 
 
