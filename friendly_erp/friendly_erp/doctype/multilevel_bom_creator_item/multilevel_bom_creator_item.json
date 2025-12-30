@@ -8,6 +8,10 @@
   "item_code",
   "uom",
   "quantity",
+  "operation",
+  "time_in_mins",
+  "workstation_type",
+  "workstation",
   "column_break_fuvd",
   "node_unique_id",
   "parent_node_unique_id",
@@ -42,6 +46,7 @@
    "options": "Item"
   },
   {
+   "columns": 1,
    "fieldname": "uom",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -49,6 +54,7 @@
    "options": "UOM"
   },
   {
+   "columns": 1,
    "fieldname": "quantity",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -98,12 +104,14 @@
    "options": "Currency"
   },
   {
+   "columns": 1,
    "fieldname": "rate",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Rate"
   },
   {
+   "columns": 1,
    "fieldname": "cost",
    "fieldtype": "Currency",
    "in_list_view": 1,
@@ -111,8 +119,10 @@
    "options": "currency"
   },
   {
+   "columns": 1,
    "fieldname": "sequence",
    "fieldtype": "Int",
+   "in_list_view": 1,
    "label": "Sequence"
   },
   {
@@ -190,13 +200,38 @@
    "fieldname": "parent_node_unique_id",
    "fieldtype": "Data",
    "label": "Parent Node Unique ID"
+  },
+  {
+   "fieldname": "operation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Operation",
+   "options": "Operation"
+  },
+  {
+   "description": "in minutes",
+   "fieldname": "time_in_mins",
+   "fieldtype": "Float",
+   "label": "Operation Time"
+  },
+  {
+   "fieldname": "workstation_type",
+   "fieldtype": "Link",
+   "label": "Workstation Type",
+   "options": "Workstation Type"
+  },
+  {
+   "fieldname": "workstation",
+   "fieldtype": "Link",
+   "label": "Workstation",
+   "options": "Workstation"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-12-25 10:54:02.480116",
+ "modified": "2025-12-30 08:56:12.646569",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Item",

@@ -75,10 +75,17 @@ class BOMTreeFactory:
         node_map = {root_node.node_unique_id: root_node}
         leaf_node_list: list[BOMTreeNode] = []
 
-        self._add_child_item_nodes_recursively(root_node, node_map, leaf_node_list)
-
+        self._add_children_recursively(
+            root_node, node_map, leaf_node_list)
+        
         tree = BOMTree(root_node, node_map, leaf_node_list)
         return tree
+    
+    def _add_children_recursively(self, parent_node: BOMTreeNode, node_map: dict, leaf_node_list: list[BOMTreeNode]):
+        self._add_child_operation_nodes_recursively(
+            parent_node, node_map, leaf_node_list)
+        self._add_child_item_nodes_recursively(
+            parent_node, node_map, leaf_node_list)
 
     def _add_child_item_nodes_recursively(self, parent_node: BOMTreeNode, node_map: dict, leaf_node_list: list[BOMTreeNode]):
         child_items = [
@@ -89,7 +96,7 @@ class BOMTreeFactory:
         if not child_items:
             leaf_node_list.append(parent_node)
             return
-    
+
         sorted_child_items = sorted(child_items, key=lambda x: x.sequence)
 
         for item in sorted_child_items:
@@ -97,4 +104,25 @@ class BOMTreeFactory:
                 item, parent_node)
             parent_node.add_child(child_node)
             node_map[child_node.node_unique_id] = child_node
-            self._add_child_item_nodes_recursively(child_node, node_map, leaf_node_list)
+            self._add_children_recursively(
+                child_node, node_map, leaf_node_list)
+            
+    def _add_child_operation_nodes_recursively(self, parent_node: BOMTreeNode, node_map: dict, leaf_node_list: list[BOMTreeNode]):
+        child_items = [
+            item for item in self.items if item.parent_node_unique_id == parent_node.node_unique_id and (item.node_type == "OPERATION")
+        ]
+
+        # LEAF NODE DETECTION
+        if not child_items:
+            leaf_node_list.append(parent_node)
+            return
+
+        sorted_child_items = sorted(child_items, key=lambda x: x.sequence)
+
+        for item in sorted_child_items:
+            child_node = BOMTreeNodeFactory.create_from_multilevel_bom_creator_item(
+                item, parent_node)
+            parent_node.add_child(child_node)
+            node_map[child_node.node_unique_id] = child_node
+            self._add_children_recursively(
+                child_node, node_map, leaf_node_list)
