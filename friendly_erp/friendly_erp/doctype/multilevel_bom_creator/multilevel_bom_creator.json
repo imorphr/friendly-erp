@@ -18,7 +18,9 @@
   "section_break_qjdf",
   "description",
   "items_tab",
-  "items"
+  "item_nodes",
+  "operation_nodes_tab",
+  "operation_nodes"
  ],
  "fields": [
   {
@@ -28,7 +30,7 @@
   {
    "fieldname": "items_tab",
    "fieldtype": "Tab Break",
-   "label": "Items",
+   "label": "Item Nodes",
    "read_only": 1
   },
   {
@@ -39,13 +41,6 @@
   {
    "fieldname": "section_break_catz",
    "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "items",
-   "fieldtype": "Table",
-   "label": "Items",
-   "options": "Multilevel BOM Creator Item",
-   "read_only": 1
   },
   {
    "fieldname": "final_product_tab",
@@ -89,13 +84,31 @@
    "fieldname": "description",
    "fieldtype": "Long Text",
    "label": "Description"
+  },
+  {
+   "fieldname": "item_nodes",
+   "fieldtype": "Table",
+   "label": "Item Nodes",
+   "options": "Multilevel BOM Creator Item Node",
+   "read_only": 1
+  },
+  {
+   "fieldname": "operation_nodes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Operation Nodes"
+  },
+  {
+   "fieldname": "operation_nodes",
+   "fieldtype": "Table",
+   "label": "Operation Nodes",
+   "options": "Multilevel BOM Creator Operation Node"
   }
  ],
  "grid_page_length": 50,
  "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-25 14:01:22.825344",
+ "modified": "2025-12-31 07:54:51.382522",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",
