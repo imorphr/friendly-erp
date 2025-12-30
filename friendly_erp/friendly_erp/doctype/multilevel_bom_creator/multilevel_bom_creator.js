@@ -4,6 +4,16 @@
 frappe.ui.form.on("Multilevel BOM Creator", {
     refresh(frm) {
         setup_bom_creator(frm);
+
+        if (!frm.is_new()) {
+            frm.add_custom_button(
+                __("Create BOMs"),
+                () => {
+                    create_boms(frm);
+                },
+                ""
+            );
+        }
     },
 });
 
@@ -44,6 +54,22 @@ function fetch_bom_tree_data(frm, tree_helper) {
         }
     });
 }
+
+function create_boms(frm) {
+    frappe.call({
+        method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.create_boms",
+        args: {
+            multilevel_bom_creator_name: frm.doc.name
+        },
+        freeze: true,
+        freeze_message: __("Creating BOMs..."),
+        callback: function (r) {
+            if (!r.exc && r.message) {
+                frm.reload_doc();
+            }
+        }
+    });
+}   
 
 //============ Tree item handlers ============
 function add_item(frm, parent) {
@@ -132,9 +158,9 @@ class BOMTreeHelper {
                 width: 80
             },
             {
-                name: "Action",
+                name: "",
                 id: "action",
-                width: 70,
+                width: 40,
                 format: function (value, row, column, data) {
                     return `
                         <div class="dropdown bom-row-dropdown">
@@ -143,7 +169,7 @@ class BOMTreeHelper {
                                 data-nodeuniqueid="${data.node_unique_id}"
                                 style="cursor:pointer;padding: 0 8px;"
                             >
-                            ⋮
+                            ...
                             </span>
                             <div data-nodeuniqueid="${data.node_unique_id}" class="dropdown-menu">
                             </div>
