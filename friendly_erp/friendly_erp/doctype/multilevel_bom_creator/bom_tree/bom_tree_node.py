@@ -32,9 +32,9 @@ class BOMTreeNode:
 
 @dataclass
 class BOMTreeItemNode(BOMTreeNode):
-    item_code: str = ""
-    quantity: float = 0
-    uom: str = ""
+    item_code: str = None
+    quantity: float = 0.0
+    uom: str = None
 
 
 @dataclass
@@ -44,7 +44,9 @@ class BOMTreeSubAssemblyNode(BOMTreeItemNode):
 
 @dataclass
 class BOMTreeOperationNode(BOMTreeNode):
-    pass
+    time_in_mins: float = 0.0
+    workstation_type: str = None
+    workstation: str = None
 
 
 @dataclass
@@ -109,7 +111,15 @@ class BOMTreeNodeFactory:
 
     @staticmethod
     def _create_operation_node(item: MultilevelBOMCreatorItem) -> BOMTreeOperationNode:
-        pass
+        return BOMTreeOperationNode(
+            node_type="OPERATION",
+            name=item.operation,
+            display_name=item.operation,
+            time_in_mins=item.time_in_mins,
+            workstation_type=item.workstation_type,
+            workstation=item.workstation,
+            sequence=item.sequence,
+        )
 
     @staticmethod
     def _create_compound_operation_node(item: MultilevelBOMCreatorItem) -> BOMTreeCompoundOperationNode:

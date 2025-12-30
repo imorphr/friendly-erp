@@ -8,6 +8,7 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree 
     BOMTreeFactory
 )
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.tree_to_bom import TreeToBOMConverter
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item.multilevel_bom_creator_item import MultilevelBOMCreatorItem
 
 class MultilevelBOMCreator(Document):
     # begin: auto-generated types
@@ -74,7 +75,7 @@ class MultilevelBOMCreator(Document):
         if parent_item.node_type != "SUB_ASSEMBLY":
             parent_item.node_type = "SUB_ASSEMBLY"
 
-        item = frappe.new_doc("Multilevel BOM Creator Item")
+        item: MultilevelBOMCreatorItem = frappe.new_doc("Multilevel BOM Creator Item")
         item.node_unique_id = frappe.generate_hash()
         item.parent_node_unique_id = parent_node_unique_id
         item.node_type = "ITEM"
@@ -83,6 +84,39 @@ class MultilevelBOMCreator(Document):
         item.uom = uom
         item.sequence = self._get_child_sequence(parent_node_unique_id)
         self.append("items", item)
+
+    def add_operation(self, parent_node_unique_id: str, operation_name: str, time_in_mins: float, workstation_type: str, workstation: str) -> None:
+        """Add a new operation under the specified parent node."""
+        tree: BOMTree = BOMTreeFactory(self).create()
+        parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
+        if not parent_node:
+            frappe.throw(
+                f"Parent node with ID {parent_node_unique_id} not found.")
+
+        if not parent_node.can_add_child_operation:
+            frappe.throw(
+                f"Cannot add operation under node '{parent_node.display_name}'. "
+                f"Adding child operations is not allowed for this node."
+            )
+
+        parent_item = next((
+            item for item in self.items if item.node_unique_id == parent_node_unique_id
+        ), None)
+
+        # As child is being added, parent must be a Sub-Assembly
+        if parent_item.node_type != "SUB_ASSEMBLY":
+            parent_item.node_type = "SUB_ASSEMBLY"
+
+        operation: MultilevelBOMCreatorItem = frappe.new_doc("Multilevel BOM Creator Item")
+        operation.node_unique_id = frappe.generate_hash()
+        operation.parent_node_unique_id = parent_node_unique_id
+        operation.node_type = "OPERATION"
+        operation.operation = operation_name
+        operation.time_in_mins = time_in_mins
+        operation.workstation_type = workstation_type
+        operation.workstation = workstation
+        operation.sequence = self._get_child_sequence(parent_node_unique_id)
+        self.append("items", operation)
 
     def create_boms(self) -> dict[str, str]:
         """
@@ -134,6 +168,16 @@ def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_
     multilevel_bom_creator.add_item(
         parent_node_unique_id, item_code, quantity, uom)
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
+    multilevel_bom_creator.flags.notify_update = False
+    multilevel_bom_creator.save()
+
+@frappe.whitelist()
+def add_operation(multilevel_bom_creator_name: str, parent_node_unique_id: str, operation_name: str, time_in_mins: float, workstation_type: str = None, workstation: str = None) -> None:
+    multilevel_bom_creator = frappe.get_doc(
+        "Multilevel BOM Creator", multilevel_bom_creator_name)
+    multilevel_bom_creator.add_operation(
+        parent_node_unique_id, operation_name, time_in_mins, workstation_type, workstation)
+    # Do not send update notification through websocket, because frappe form auto refreshes on this notification causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
 

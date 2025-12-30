@@ -69,7 +69,7 @@ function create_boms(frm) {
             }
         }
     });
-}   
+}
 
 //============ Tree item handlers ============
 function add_item(frm, parent) {
@@ -101,7 +101,28 @@ function add_existing_sub_assembly(frm, parent) {
 }
 
 function add_operation(frm, parent) {
-    frappe.msgprint(`Add Operation clicked for ${parent.name}`);
+    const dialog = new NewChildOperationDialogFactory(frm, (values, frm) => {
+        frappe.call({
+            method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_operation",
+            args: {
+                multilevel_bom_creator_name: frm.doc.name,
+                parent_node_unique_id: parent.node_unique_id,
+                operation_name: values.operation_name,
+                time_in_mins: values.time_in_mins,
+                workstation_type: values.workstation_type,
+                workstation: values.workstation
+            },
+            freeze: true,
+            freeze_message: __("Adding Operation..."),
+            callback: function (r) {
+                if (!r.exc) {
+                    frm.reload_doc();
+                    dialog.hide();
+                }
+            }
+        });
+    }).create();
+    dialog.show();
 }
 
 function delete_item(frm, item) {
@@ -419,7 +440,7 @@ class NewChildItemDialogFactory {
             title: __("Add New Item"),
             fields: [
                 {
-                    label: __("Item Code (Final Product)"),
+                    label: __("Item Code"),
                     fieldtype: "Link",
                     fieldname: "item_code",
                     options: "Item",
@@ -458,6 +479,55 @@ class NewChildItemDialogFactory {
         });
 
         dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
+        return dialog;
+    }
+}
+
+class NewChildOperationDialogFactory {
+    constructor(frm, action) {
+        this.frm = frm;
+        this.action = action;
+    }
+
+    create() {
+        const dialog = new frappe.ui.Dialog({
+            title: __("Add New Operation"),
+            fields: [
+                {
+                    label: __("Operation"),
+                    fieldtype: "Link",
+                    fieldname: "operation_name",
+                    options: "Operation",
+                    reqd: 1,
+                },
+                {
+                    label: __("Workstation Type"),
+                    fieldtype: "Link",
+                    fieldname: "workstation_type",
+                    options: "Workstation Type",
+                    reqd: 0,
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Operation Time (in mins)"),
+                    fieldtype: "Float",
+                    fieldname: "time_in_mins",
+                    reqd: 1,
+                },
+                {
+                    label: __("Workstation"),
+                    fieldtype: "Link",
+                    fieldname: "workstation",
+                    options: "Workstation",
+                    reqd: 0,
+                },
+            ],
+            primary_action_label: __("Create"),
+            primary_action: (values) => {
+                this.action(values, this.frm);
+            },
+        });
+
         return dialog;
     }
 }

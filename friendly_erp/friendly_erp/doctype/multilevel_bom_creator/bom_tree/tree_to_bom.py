@@ -135,6 +135,15 @@ class TreeToBOMConverter:
                 item.allow_alternative_item = 0 # TODO: As of now hardcoding
                 item.bom_no = child.bom_no
                 bom.append("items", item)
+            elif child.node_type == "OPERATION":
+                bom.with_operations = True
+                operation = frappe.new_doc("BOM Operation")
+                operation.operation = child.name
+                operation.time_in_mins = child.time_in_mins
+                operation.sequence_id = child.sequence
+                operation.workstation_type = child.workstation_type
+                operation.workstation = child.workstation
+                bom.append("operations", operation)
 
         bom.insert()
         bom.submit()  # TODO: Should submit immediately? Looks like yes it should be, to use it as sub-assembly in parent BOMs
