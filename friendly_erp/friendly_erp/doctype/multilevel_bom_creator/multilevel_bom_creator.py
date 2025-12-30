@@ -7,8 +7,7 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree 
     BOMTree,
     BOMTreeFactory
 )
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_node import BOMTreeSubAssemblyNode
-
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.tree_to_bom import TreeToBOMConverter
 
 class MultilevelBOMCreator(Document):
     # begin: auto-generated types
@@ -54,6 +53,7 @@ class MultilevelBOMCreator(Document):
 
     def add_item(self, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
+        #TODO: Cycle detection pending
         tree: BOMTree = BOMTreeFactory(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
@@ -84,6 +84,31 @@ class MultilevelBOMCreator(Document):
         item.sequence = self._get_child_sequence(parent_node_unique_id)
         self.append("items", item)
 
+    def create_boms(self) -> dict[str, str]:
+        """
+        Create ERPNext BOMs from the multilevel BOM tree and
+        persist bom_no back to creator items.
+        Returns: {node_unique_id: bom_no}
+        """
+
+        # 1. Build tree
+        tree: BOMTree = BOMTreeFactory(self).create()
+
+        # 2. Convert tree → BOMs
+        converter = TreeToBOMConverter(tree, self.company)
+        converter.convert()
+
+        # 3. Persist bom_no back to child table
+        node_id_to_bom = converter.newly_created_boms or {}
+
+        for row in self.items:
+            bom_no = node_id_to_bom.get(row.node_unique_id)
+            if bom_no:
+                row.bom_no = bom_no
+
+        return node_id_to_bom
+
+
     def _get_child_sequence(self, parent_node_unique_id: str) -> int:
         """Get the next sequence number for a child item under the specified parent node."""
         child_items = [
@@ -108,6 +133,17 @@ def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_item(
         parent_node_unique_id, item_code, quantity, uom)
+    # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
+    multilevel_bom_creator.flags.notify_update = False
+    multilevel_bom_creator.save()
+
+@frappe.whitelist()
+def create_boms(multilevel_bom_creator_name: str) -> dict[str, str]:
+    multilevel_bom_creator = frappe.get_doc(
+        "Multilevel BOM Creator",
+        multilevel_bom_creator_name
+    )
+    new_boms = multilevel_bom_creator.create_boms()
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()

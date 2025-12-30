@@ -4,9 +4,10 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item.multilevel_bo
 
 
 class BOMTree:
-    def __init__(self, root_node: BOMTreeNode, node_map: dict = None):
+    def __init__(self, root_node: BOMTreeNode, node_map: dict, leaf_nodes: list[BOMTreeNode]):
         self.root = root_node
-        self.node_map = node_map if node_map is not None else {}
+        self.node_map = node_map
+        self.leaf_nodes: list[BOMTreeNode] = leaf_nodes
 
     def to_dict(self) -> dict:
         """
@@ -72,16 +73,23 @@ class BOMTreeFactory:
         root_node = BOMTreeNodeFactory.create_from_multilevel_bom_creator_item(
             root_item, None)
         node_map = {root_node.node_unique_id: root_node}
+        leaf_node_list: list[BOMTreeNode] = []
 
-        self._add_child_item_nodes_recursively(root_node, node_map)
+        self._add_child_item_nodes_recursively(root_node, node_map, leaf_node_list)
 
-        tree = BOMTree(root_node, node_map)
+        tree = BOMTree(root_node, node_map, leaf_node_list)
         return tree
 
-    def _add_child_item_nodes_recursively(self, parent_node: BOMTreeNode, node_map: dict):
+    def _add_child_item_nodes_recursively(self, parent_node: BOMTreeNode, node_map: dict, leaf_node_list: list[BOMTreeNode]):
         child_items = [
             item for item in self.items if item.parent_node_unique_id == parent_node.node_unique_id and (item.node_type == "ITEM" or item.node_type == "SUB_ASSEMBLY")
         ]
+
+        # LEAF NODE DETECTION
+        if not child_items:
+            leaf_node_list.append(parent_node)
+            return
+    
         sorted_child_items = sorted(child_items, key=lambda x: x.sequence)
 
         for item in sorted_child_items:
@@ -89,4 +97,4 @@ class BOMTreeFactory:
                 item, parent_node)
             parent_node.add_child(child_node)
             node_map[child_node.node_unique_id] = child_node
-            self._add_child_item_nodes_recursively(child_node, node_map)
+            self._add_child_item_nodes_recursively(child_node, node_map, leaf_node_list)
