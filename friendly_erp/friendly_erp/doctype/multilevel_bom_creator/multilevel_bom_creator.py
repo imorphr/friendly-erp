@@ -8,7 +8,8 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree 
     BOMCreatorTreeBuilder
 )
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.tree_to_bom import TreeToBOMConverter
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item.multilevel_bom_creator_item import MultilevelBOMCreatorItem
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
 class MultilevelBOMCreator(Document):
     # begin: auto-generated types
@@ -18,12 +19,14 @@ class MultilevelBOMCreator(Document):
 
     if TYPE_CHECKING:
         from frappe.types import DF
-        from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item.multilevel_bom_creator_item import MultilevelBOMCreatorItem
+        from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
+        from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
         company: DF.Link
         description: DF.LongText | None
         item_code: DF.Link
-        items: DF.Table[MultilevelBOMCreatorItem]
+        item_nodes: DF.Table[MultilevelBOMCreatorItemNode]
+        operation_nodes: DF.Table[MultilevelBOMCreatorOperationNode]
         qty: DF.Float
     # end: auto-generated types
 
@@ -42,7 +45,7 @@ class MultilevelBOMCreator(Document):
         if self.items:
             frappe.throw("Root item already exists.")
 
-        item = frappe.new_doc("Multilevel BOM Creator Item")
+        item: MultilevelBOMCreatorItemNode = frappe.new_doc("Multilevel BOM Creator Item Node")
         item.node_unique_id = frappe.generate_hash()
         item.parent_node_unique_id = None
         item.node_type = "SUB_ASSEMBLY"
@@ -75,15 +78,15 @@ class MultilevelBOMCreator(Document):
         if parent_item.node_type != "SUB_ASSEMBLY":
             parent_item.node_type = "SUB_ASSEMBLY"
 
-        item: MultilevelBOMCreatorItem = frappe.new_doc("Multilevel BOM Creator Item")
+        item: MultilevelBOMCreatorItemNode = frappe.new_doc("Multilevel BOM Creator Item")
         item.node_unique_id = frappe.generate_hash()
         item.parent_node_unique_id = parent_node_unique_id
         item.node_type = "ITEM"
         item.item_code = item_code
         item.quantity = quantity
         item.uom = uom
-        item.sequence = self._get_child_sequence(parent_node_unique_id)
-        self.append("items", item)
+        item.sequence = self._get_child_item_node_sequence(parent_node_unique_id)
+        self.append("item_nodes", item)
 
     def add_operation(self, parent_node_unique_id: str, operation_name: str, time_in_mins: float, workstation_type: str, workstation: str) -> None:
         """Add a new operation under the specified parent node."""
@@ -107,7 +110,7 @@ class MultilevelBOMCreator(Document):
         if parent_item.node_type != "SUB_ASSEMBLY":
             parent_item.node_type = "SUB_ASSEMBLY"
 
-        operation: MultilevelBOMCreatorItem = frappe.new_doc("Multilevel BOM Creator Item")
+        operation: MultilevelBOMCreatorOperationNode = frappe.new_doc("Multilevel BOM Creator Operation Node")
         operation.node_unique_id = frappe.generate_hash()
         operation.parent_node_unique_id = parent_node_unique_id
         operation.node_type = "OPERATION"
@@ -115,8 +118,8 @@ class MultilevelBOMCreator(Document):
         operation.time_in_mins = time_in_mins
         operation.workstation_type = workstation_type
         operation.workstation = workstation
-        operation.sequence = self._get_child_sequence(parent_node_unique_id)
-        self.append("items", operation)
+        operation.sequence = self._get_child_operation_node_sequence(parent_node_unique_id)
+        self.append("operation_nodes", operation)
 
     def create_boms(self) -> dict[str, str]:
         """
@@ -135,7 +138,7 @@ class MultilevelBOMCreator(Document):
         # 3. Persist bom_no back to child table
         node_id_to_bom = converter.newly_created_boms or {}
 
-        for row in self.items:
+        for row in self.item_nodes:
             bom_no = node_id_to_bom.get(row.node_unique_id)
             if bom_no:
                 row.bom_no = bom_no
@@ -143,15 +146,23 @@ class MultilevelBOMCreator(Document):
         return node_id_to_bom
 
 
-    def _get_child_sequence(self, parent_node_unique_id: str) -> int:
+    def _get_child_item_node_sequence(self, parent_node_unique_id: str) -> int:
         """Get the next sequence number for a child item under the specified parent node."""
-        child_items = [
-            item for item in self.items if item.parent_node_unique_id == parent_node_unique_id
+        child_item_nodes = [
+            item_nd for item_nd in self.item_nodes if item_nd.parent_node_unique_id == parent_node_unique_id
         ]
-        if not child_items:
+        if not child_item_nodes:
             return 0
-        return max(item.sequence for item in child_items) + 1
+        return max(nd.sequence for nd in child_item_nodes) + 1
 
+    def _get_child_operation_node_sequence(self, parent_node_unique_id: str) -> int:
+        """Get the next sequence number for a child operation under the specified parent node."""
+        child_operation_nodes = [
+            op_nd for op_nd in self.operation_nodes if op_nd.parent_node_unique_id == parent_node_unique_id
+        ]
+        if not child_operation_nodes:
+            return 0
+        return max(nd.sequence for nd in child_operation_nodes) + 1
 
 @frappe.whitelist()
 def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:

@@ -2,33 +2,67 @@ from dataclasses import dataclass, field
 from typing import List, Literal, Optional
 
 import frappe
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item.multilevel_bom_creator_item import MultilevelBOMCreatorItem
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
-NodeType = Literal["ITEM", "SUB_ASSEMBLY", "OPERATION", "COMPOUND_OPERATION"]
+NodeType = Literal["ITEM", "SUB_ASSEMBLY", "OPERATION"]
 
 
+# ===============================================================================
+#                             Tree Node Classes
+# ===============================================================================
 @dataclass
 class BOMTreeNode:
-    node_unique_id: str = ""
-    parent_node_unique_id: str | None = None
+    node_type: NodeType
+    node_unique_id: str = None
+    internal_name: str = None
+    display_name: str = None
     parent_node_ref: Optional['BOMTreeNode'] = None
-    node_type: NodeType = None
-    name: str = ""
-    display_name: str = ""
-    sequence: int = 0
-    # node_type: NodeType = None
     children: List['BOMTreeNode'] = field(default_factory=list)
+    # When node is part of a tree, sequence indicates the order among siblings
+    sequence: int = 0
+    # When node is part of a tree, depth indicates the level in the tree
+    depth: int = 0
+    # Indentation level for display purposes. Frappe UI tree control needs it.
+    # Ideally this is same as depth.
+    indent: int = 0
+    # This flag  indicates whether this node is part of the tree or was projected from existing BOM
+    # Projected nodes are there to give full structure/picture of the BOM to user on UI.
+    # But projected nodes cannot be modified or deleted. Hence this flag helps to identify such nodes.
+    is_projected: bool = False
 
+    # Action flags
     can_add_child_item: bool = False
     can_add_child_operation: bool = False
     can_delete: bool = False
 
-    depth: int = 0   # Depth in the tree
-    # Indentation level for display purposes. Ideally this is same as depth.
-    indent: int = 0
-
+    # ⚠️ Use this method to add child. Do not directly append to children array of node.
+    # Because this method performs some validations and assigns important fields like
+    # parent ref, indent and depth.
     def add_child(self, child_node: 'BOMTreeNode'):
+        if child_node.parent_node_ref is not None:
+            frappe.throw(f"Node '{self.display_name}' already has a parent")
+
+        current = self
+        while current:
+            if current is child_node:
+                frappe.throw(f"Circular parent-child relationship detected for {child_node.display_name}")
+            current = current.parent_node_ref
+
+        if child_node in self.children:
+            return
+
         self.children.append(child_node)
+        child_node.parent_node_ref = self
+        child_node.depth = self.depth + 1
+        # Indent and depth will have same value.
+        child_node.indent = child_node.depth
+
+    def mark_as_projected(self):
+        self.is_projected = True
+
+    def is_leaf(self):
+        return not self.children
 
 
 @dataclass
@@ -41,160 +75,144 @@ class BOMTreeItemNode(BOMTreeNode):
 @dataclass
 class BOMTreeSubAssemblyNode(BOMTreeItemNode):
     bom_no: str = ""
+    # Flag to indicate whether this sub-assembly node corresponds to an existing BOM
+    # While creating Multi-level BOM,
+    # (1) user can add nested item nodes to create new sub-assemblies
+    # for such newly added sub-assemblies, this flag will be False.
+    # (2) or user can reference existing BOMs as sub-assemblies
+    # for such existing BOM referenced sub-assemblies, this flag will be True.
+    # Once all the BOMs from BOM creator tree are created, then ideally all sub-assembly nodes
+    # will have BOM numbers. But at that time also this flag specifically will indicate
+    # whether the sub-assembly was being created afresh while converting tree to BOMs
+    # or the sub-assembly was referencing a pre-existing BOM.
+    is_preexisting_bom: bool = False
+    do_not_explode: bool = False
 
 
 @dataclass
 class BOMTreeOperationNode(BOMTreeNode):
+    operation: str = None
     time_in_mins: float = 0.0
     workstation_type: str = None
     workstation: str = None
 
 
-@dataclass
-class BOMTreeCompoundOperationNode(BOMTreeOperationNode):
-    pass
-
+# ===============================================================================
+#                             Tree Node Factories
+# ===============================================================================
 
 class BOMCreatorTreeNodeFactory:
     @staticmethod
-    def create_from_multilevel_bom_creator_item(item: MultilevelBOMCreatorItem, parent_node_ref: BOMTreeNode) -> BOMTreeNode:
+    def create_from_multilevel_bom_creator_item(item: MultilevelBOMCreatorItemNode) -> BOMTreeNode:
         node = None
         if item.node_type == "ITEM":
             node = BOMCreatorTreeNodeFactory._create_item_node(item)
         elif item.node_type == "SUB_ASSEMBLY":
             node = BOMCreatorTreeNodeFactory._create_sub_assembly_node(item)
-        elif item.node_type == "OPERATION":
-            node = BOMCreatorTreeNodeFactory._create_operation_node(item)
-        elif item.node_type == "COMPOUND_OPERATION":
-            node = BOMCreatorTreeNodeFactory._create_compound_operation_node(item)
         else:
             raise ValueError(f"Unknown node type: {item.node_type}")
 
-        BOMCreatorTreeNodeFactory._set_common_fields(node, item.node_unique_id, parent_node_ref, item.sequence)
-        # init action flag should always be called after parent_node_ref is set and other members are initialized
-        BOMTreeNodeActionFlagInitializer.initialize_action_flags(node)
-
+        node.node_unique_id = item.node_unique_id
+        node.sequence = item.sequence
         return node
     
     @staticmethod
-    def _set_common_fields(node, node_unique_id: str, parent_node_ref: BOMTreeNode, sequence: int):
-        node.node_unique_id = node_unique_id
-        node.parent_node_ref = parent_node_ref
-        node.parent_node_unique_id = parent_node_ref.node_unique_id if parent_node_ref else None
-        node.sequence = sequence
-        if not parent_node_ref:
-            node.indent = 0
-            node.depth = 0
+    def create_from_multilevel_bom_creator_operation(item: MultilevelBOMCreatorOperationNode) -> BOMTreeNode:
+        node = None
+        if item.node_type == "OPERATION":
+            node = BOMCreatorTreeNodeFactory._create_operation_node(item)
         else:
-            node.indent = parent_node_ref.indent + 1
-            node.depth = parent_node_ref.depth + 1
+            raise ValueError(f"Unknown node type: {item.node_type}")
+
+        node.node_unique_id = item.node_unique_id
+        node.sequence = item.sequence
+        return node
 
     @staticmethod
-    def _create_item_node(item: MultilevelBOMCreatorItem) -> BOMTreeItemNode:
+    def _create_item_node(item: MultilevelBOMCreatorItemNode) -> BOMTreeItemNode:
         return BOMTreeItemNode(
             node_type="ITEM",
-            name=item.item_code,
-            display_name=item.item_code,
-            sequence=item.sequence,
             item_code=item.item_code,
+            internal_name=item.item_code,
+            display_name=item.item_code,    # TODO: should we use item_name here?
             quantity=item.quantity,
             uom=item.uom,
         )
 
     @staticmethod
-    def _create_sub_assembly_node(item: MultilevelBOMCreatorItem) -> BOMTreeSubAssemblyNode:
+    def _create_sub_assembly_node(item: MultilevelBOMCreatorItemNode) -> BOMTreeSubAssemblyNode:
         return BOMTreeSubAssemblyNode(
             node_type="SUB_ASSEMBLY",
-            name=item.item_code,
-            display_name=item.item_code,
-            sequence=item.sequence,
             item_code=item.item_code,
+            bom_no=item.bom_no,
+            internal_name=item.item_code,
+            display_name=item.item_code,
             quantity=item.quantity,
             uom=item.uom,
-            bom_no=item.bom_no,
         )
 
     @staticmethod
-    def _create_operation_node(item: MultilevelBOMCreatorItem) -> BOMTreeOperationNode:
+    def _create_operation_node(item: MultilevelBOMCreatorOperationNode) -> BOMTreeOperationNode:
+        ws = item.workstation or item.workstation_type
+        workstation_display_text = f" [{ws}]" if ws else ""
         return BOMTreeOperationNode(
             node_type="OPERATION",
-            name=item.operation,
-            display_name=item.operation,
+            operation=item.operation,
+            internal_name=item.operation,
+            display_name=f"{item.sequence}: {item.operation}{workstation_display_text}",
             time_in_mins=item.time_in_mins,
             workstation_type=item.workstation_type,
             workstation=item.workstation,
-            sequence=item.sequence,
         )
 
-    @staticmethod
-    def _create_compound_operation_node(item: MultilevelBOMCreatorItem) -> BOMTreeCompoundOperationNode:
-        pass
-    
+
 class ExistingBOMTreeNodeFactory:
     @staticmethod
-    def create_from_existing_bom(bom, parent_node_ref: BOMTreeNode, sequence: int) -> BOMTreeSubAssemblyNode:
-        node = BOMTreeSubAssemblyNode(
+    def create_from_bom(bom, sequence: int) -> BOMTreeSubAssemblyNode:
+        return BOMTreeSubAssemblyNode(
             node_type="SUB_ASSEMBLY",
-            name=bom.name,
-            display_name=f"{bom.item_name} [{bom.name}]",
+            node_unique_id=frappe.generate_hash(),
             sequence=sequence,
-            item_code=bom.item_name,
+            item_code=bom.item,
+            bom_no=bom.name,
+            internal_name=bom.item,
+            display_name=bom.item,
             quantity=bom.quantity,
             uom=bom.uom,
-            bom_no=bom.name,
         )
-        ExistingBOMTreeNodeFactory._set_common_fields(node, frappe.generate_hash(), parent_node_ref, sequence)
-        # init action flag should always be called after parent_node_ref is set and other members are initialized
-        BOMTreeNodeActionFlagInitializer.initialize_action_flags(node)
 
-        return node
-    
     @staticmethod
-    def create_from_existing_bom_item(bom_item, parent_node_ref: BOMTreeNode, sequence: int) -> BOMTreeItemNode:
-        node = BOMTreeItemNode(
+    def create_from_item(bom_item, sequence: int) -> BOMTreeItemNode:
+        return BOMTreeItemNode(
             node_type="ITEM",
-            name=bom_item.item_code,
-            display_name=bom_item.item_code,
+            node_unique_id=frappe.generate_hash(),
             sequence=sequence,
             item_code=bom_item.item_code,
+            internal_name=bom_item.item_code,
+            display_name=bom_item.item_code,
             quantity=bom_item.qty,
             uom=bom_item.uom,
         )
-        ExistingBOMTreeNodeFactory._set_common_fields(node, frappe.generate_hash(), parent_node_ref, sequence)
-        # init action flag should always be called after parent_node_ref is set and other members are initialized
-        BOMTreeNodeActionFlagInitializer.initialize_action_flags(node)
-        return node
-    
+
     @staticmethod
-    def create_from_existing_bom_operation(bom_operation, parent_node_ref: BOMTreeNode, sequence: int) -> BOMTreeOperationNode:
-        workstation_display_text = f"{bom_operation.workstation or bom_operation.workstation_type}"
-        workstation_display_text = f" [{workstation_display_text}]" if workstation_display_text else ""
-        node = BOMTreeOperationNode(
+    def create_from_operation(bom_operation, sequence: int) -> BOMTreeOperationNode:
+        ws = bom_operation.workstation or bom_operation.workstation_type
+        workstation_display_text = f" [{ws}]" if ws else ""
+        return BOMTreeOperationNode(
             node_type="OPERATION",
-            name=bom_operation.operation,
+            node_unique_id=frappe.generate_hash(),
+            sequence=sequence,
+            operation=bom_operation.operation,
+            internal_name=bom_operation.operation,
             display_name=f"{bom_operation.idx}: {bom_operation.operation}{workstation_display_text}",
             time_in_mins=bom_operation.time_in_mins,
             workstation_type=bom_operation.workstation_type,
             workstation=bom_operation.workstation,
-            sequence=sequence,
         )
-        ExistingBOMTreeNodeFactory._set_common_fields(node, frappe.generate_hash(), parent_node_ref, sequence)
-        # init action flag should always be called after parent_node_ref is set and other members are initialized
-        BOMTreeNodeActionFlagInitializer.initialize_action_flags(node)
-        return node
-    
-    @staticmethod
-    def _set_common_fields(node, node_unique_id: str, parent_node_ref: BOMTreeNode, sequence: int):
-        node.node_unique_id = node_unique_id
-        node.parent_node_ref = parent_node_ref
-        node.parent_node_unique_id = parent_node_ref.node_unique_id if parent_node_ref else None
-        node.sequence = sequence
-        if not parent_node_ref:
-            node.indent = 0
-            node.depth = 0
-        else:
-            node.indent = parent_node_ref.indent + 1
-            node.depth = parent_node_ref.depth + 1
+
+# ===============================================================================
+#                             Node Action Flag Initializer
+# ===============================================================================
 
 class BOMTreeNodeActionFlagInitializer:
     @staticmethod
@@ -217,8 +235,10 @@ class BOMTreeNodeActionFlagInitializer:
 
         if node.node_type == "SUB_ASSEMBLY":
             # If the node is a Sub-Assembly with an existing BOM, no actions allowed because existing BOMs cannot be modified
-            node.can_add_child_item = False if hasattr(node, "bom_no") and node.bom_no or is_child_of_existing_sub_assembly else True
-            node.can_add_child_operation = False if hasattr(node, "bom_no") and node.bom_no or is_child_of_existing_sub_assembly else True
+            node.can_add_child_item = False if hasattr(
+                node, "bom_no") and node.bom_no or is_child_of_existing_sub_assembly else True
+            node.can_add_child_operation = False if hasattr(
+                node, "bom_no") and node.bom_no or is_child_of_existing_sub_assembly else True
             node.can_delete = False if is_child_of_existing_sub_assembly else True
 
         elif node.node_type == "ITEM":

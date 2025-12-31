@@ -5,7 +5,7 @@
 from frappe.model.document import Document
 
 
-class MultilevelBOMCreatorItem(Document):
+class MultilevelBOMCreatorItemNode(Document):
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
 
@@ -25,9 +25,8 @@ class MultilevelBOMCreatorItem(Document):
 		is_stock_item: DF.Check
 		item_code: DF.Link | None
 		item_operation: DF.Link | None
-		node_type: DF.Literal["", "ROOT", "ITEM", "OPERATION", "SUB_ASSEMBLY", "COMPOUND_OPERATION"]
+		node_type: DF.Literal["ITEM", "SUB_ASSEMBLY"]
 		node_unique_id: DF.Data
-		operation: DF.Link | None
 		parent: DF.Data
 		parent_node_unique_id: DF.Data | None
 		parentfield: DF.Data
@@ -40,9 +39,6 @@ class MultilevelBOMCreatorItem(Document):
 		set_rate_of_sub_assembly_item_based_on_bom: DF.Check
 		source_warehouse: DF.Link | None
 		sourced_by_supplier: DF.Check
-		time_in_mins: DF.Float
 		uom: DF.Link | None
-		workstation: DF.Link | None
-		workstation_type: DF.Link | None
 	# end: auto-generated types
 	pass
