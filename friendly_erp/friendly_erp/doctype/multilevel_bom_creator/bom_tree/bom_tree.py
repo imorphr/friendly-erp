@@ -55,7 +55,7 @@ class BOMTree:
         return self.node_map.get(node_unique_id, None)
 
 
-class BOMCreatorTreeFactory:
+class BOMCreatorTreeBuilder:
     def __init__(self, bom_creator_doc):
         self.bom_creator_doc = bom_creator_doc
         self.items: list[MultilevelBOMCreatorItem] = bom_creator_doc.get("items", [
@@ -111,7 +111,7 @@ class BOMCreatorTreeFactory:
             self._add_children_recursively(
                 child_node, node_map, leaf_node_list)
             if item.node_type == "SUB_ASSEMBLY" and item.bom_no and not child_node.children:
-                existing_bom_tree =BOMTreeFactory(
+                existing_bom_tree =ExistingBOMTreeBuilder(
                     item.bom_no, child_node, item.sequence, node_map, leaf_node_list
                 ).create()
                 # Attach existing BOM tree's children to the current child_node
@@ -139,7 +139,7 @@ class BOMCreatorTreeFactory:
                 child_node, node_map, leaf_node_list)
 
 # TODO: leaf_node_list population is pending
-class BOMTreeFactory:
+class ExistingBOMTreeBuilder:
     def __init__(self, bom_name: str, parent_node_ref: BOMTreeNode | None = None, sequence: int = 0, node_map: dict = None, leaf_node_list: list[BOMTreeNode] = None):
         self.bom_name = bom_name
         self.node_map = node_map if node_map is not None else {}
