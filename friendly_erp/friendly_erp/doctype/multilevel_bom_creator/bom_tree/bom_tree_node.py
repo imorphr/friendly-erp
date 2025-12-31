@@ -18,6 +18,7 @@ class BOMTreeNode:
     internal_name: str = None
     display_name: str = None
     parent_node_ref: Optional['BOMTreeNode'] = None
+    tree_ref: 'BOMTree' = None
     children: List['BOMTreeNode'] = field(default_factory=list)
     # When node is part of a tree, sequence indicates the order among siblings
     sequence: int = 0
@@ -40,6 +41,8 @@ class BOMTreeNode:
     # Because this method performs some validations and assigns important fields like
     # parent ref, indent and depth.
     def add_child(self, child_node: 'BOMTreeNode'):
+        if not self.tree_ref:
+            frappe.throw("Node is not attached to any tree")
         if child_node.parent_node_ref is not None:
             frappe.throw(f"Node '{self.display_name}' already has a parent")
 
@@ -48,11 +51,9 @@ class BOMTreeNode:
             if current is child_node:
                 frappe.throw(f"Circular parent-child relationship detected for {child_node.display_name}")
             current = current.parent_node_ref
-
-        if child_node in self.children:
-            return
-
+     
         self.children.append(child_node)
+        self.tree_ref.add_to_node_map(child_node)
         child_node.parent_node_ref = self
         child_node.depth = self.depth + 1
         # Indent and depth will have same value.
@@ -103,7 +104,7 @@ class BOMTreeOperationNode(BOMTreeNode):
 
 class BOMCreatorTreeNodeFactory:
     @staticmethod
-    def create_from_multilevel_bom_creator_item(item: MultilevelBOMCreatorItemNode) -> BOMTreeNode:
+    def create_from_multilevel_bom_creator_item(item: MultilevelBOMCreatorItemNode, tree_ref) -> BOMTreeNode:
         node = None
         if item.node_type == "ITEM":
             node = BOMCreatorTreeNodeFactory._create_item_node(item)
@@ -114,10 +115,11 @@ class BOMCreatorTreeNodeFactory:
 
         node.node_unique_id = item.node_unique_id
         node.sequence = item.sequence
+        node.tree_ref = tree_ref
         return node
     
     @staticmethod
-    def create_from_multilevel_bom_creator_operation(item: MultilevelBOMCreatorOperationNode) -> BOMTreeNode:
+    def create_from_multilevel_bom_creator_operation(item: MultilevelBOMCreatorOperationNode, tree_ref) -> BOMTreeNode:
         node = None
         if item.node_type == "OPERATION":
             node = BOMCreatorTreeNodeFactory._create_operation_node(item)
@@ -126,6 +128,7 @@ class BOMCreatorTreeNodeFactory:
 
         node.node_unique_id = item.node_unique_id
         node.sequence = item.sequence
+        node.tree_ref = tree_ref
         return node
 
     @staticmethod
@@ -168,9 +171,10 @@ class BOMCreatorTreeNodeFactory:
 
 class ExistingBOMTreeNodeFactory:
     @staticmethod
-    def create_from_bom(bom, sequence: int) -> BOMTreeSubAssemblyNode:
+    def create_from_bom(bom, sequence: int, tree_ref) -> BOMTreeSubAssemblyNode:
         return BOMTreeSubAssemblyNode(
             node_type="SUB_ASSEMBLY",
+            tree_ref=tree_ref,
             node_unique_id=frappe.generate_hash(),
             sequence=sequence,
             item_code=bom.item,
@@ -182,9 +186,10 @@ class ExistingBOMTreeNodeFactory:
         )
 
     @staticmethod
-    def create_from_item(bom_item, sequence: int) -> BOMTreeItemNode:
+    def create_from_item(bom_item, sequence: int, tree_ref) -> BOMTreeItemNode:
         return BOMTreeItemNode(
             node_type="ITEM",
+            tree_ref=tree_ref,
             node_unique_id=frappe.generate_hash(),
             sequence=sequence,
             item_code=bom_item.item_code,
@@ -195,11 +200,12 @@ class ExistingBOMTreeNodeFactory:
         )
 
     @staticmethod
-    def create_from_operation(bom_operation, sequence: int) -> BOMTreeOperationNode:
+    def create_from_operation(bom_operation, sequence: int, tree_ref) -> BOMTreeOperationNode:
         ws = bom_operation.workstation or bom_operation.workstation_type
         workstation_display_text = f" [{ws}]" if ws else ""
         return BOMTreeOperationNode(
             node_type="OPERATION",
+            tree_ref=tree_ref,
             node_unique_id=frappe.generate_hash(),
             sequence=sequence,
             operation=bom_operation.operation,

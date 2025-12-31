@@ -171,7 +171,7 @@ def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
     tree: BOMTree = BOMCreatorTreeBuilder(multilevel_bom_creator).create()
     return tree.to_depth_first_flat_list()
 
-
+# TODO: Need to add method to add existing sub assembly and at that time consider is_preexisting flag end to end
 @frappe.whitelist()
 def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
     multilevel_bom_creator = frappe.get_doc(
