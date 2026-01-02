@@ -8,6 +8,7 @@ import frappe
 
 NodeType = Literal["ITEM", "SUB_ASSEMBLY", "OPERATION"]
 
+
 @dataclass
 class BOMTreeNode:
     node_type: NodeType
@@ -46,9 +47,10 @@ class BOMTreeNode:
         current = self
         while current:
             if current is child_node:
-                frappe.throw(f"Circular parent-child relationship detected for {child_node.display_name}")
+                frappe.throw(
+                    f"Circular parent-child relationship detected for {child_node.display_name}")
             current = current.parent_node_ref
-     
+
         child_node.parent_node_ref = self
         child_node.depth = self.depth + 1
         # Indent and depth will have same value.
@@ -97,10 +99,11 @@ class BOMTreeOperationNode(BOMTreeNode):
     time_in_mins: float = 0.0
     workstation_type: str = None
     workstation: str = None
-    
+
 # ===============================================================================
 #                             Tree Class
 # ===============================================================================
+
 
 class BOMTree:
     def __init__(self):
@@ -188,6 +191,91 @@ class BOMTree:
         for node in self.node_map.values():
             node.mark_as_projected()
 
+    def merge_another_tree(self, parent_node: BOMTreeNode, another_tree: 'BOMTree', exclude_root: bool):
+        """
+        Merge another BOMTree into this tree under the given parent_node.
+
+        Algorithm:
+        1. Validate inputs and ownership.
+        2. Decide which nodes from another_tree should be attached
+        (root OR root's children based on exclude_root).
+        3. Attach selected nodes under parent_node and fix parent references.
+        4. Update tree_ref for all merged nodes to point to this tree.
+        5. Merge node_map entries from another_tree into this tree's node_map.
+        """
+        self.ensure_root_exists()
+        if not another_tree:
+            frappe.throw("Other tree was not given for merge operation.")
+        if not parent_node:
+            frappe.throw("Parent node not specified.")
+        if parent_node.tree_ref != self and parent_node.node_unique_id not in self.node_map and self.node_map[parent_node.node_unique_id] != parent_node:
+            frappe.throw(
+                f"Parent node '{parent_node.display_name}' does not belog to tree")
+            
+        # Validate parent node belongs to this tree
+        if (
+            parent_node.tree_ref is not self
+            or parent_node.node_unique_id not in self.node_map
+            or self.node_map[parent_node.node_unique_id] is not parent_node
+        ):
+            frappe.throw(
+                f"Parent node '{parent_node.display_name}' does not belong to this tree"
+            )
+
+        another_tree.ensure_root_exists()
+
+        # Step 1: Decide nodes to merge
+        if exclude_root:
+            nodes_to_merge = another_tree.root.children or []
+        else:
+            nodes_to_merge = [another_tree.root]
+
+        # Step 2: Update tree_ref for nodes to merge
+        for node in another_tree.node_map.values():
+            if exclude_root and node is another_tree.root:
+                continue     # Skip root if excluded
+
+            node.tree_ref = self
+
+        # Step 3: Update depth & indent
+        base_depth = parent_node.depth + 1
+        for node in nodes_to_merge:
+            self._update_subtree_depth_and_indent(node, base_depth)
+
+        # Step 4: Attach nodes to parent_node
+        for node in nodes_to_merge:
+            node.parent_node_ref = None # Reset parent_node_ref as it is going to be child of new parent
+            parent_node.add_child(node)
+            # Delete added node from another tree's node_map as node it now merged
+            del another_tree.node_map[node.node_unique_id]
+
+        # Step 5: Merge node_map entries for all (upto n level) merged nodes 
+        for unique_id, node in another_tree.node_map.items():
+            # Skip root if excluded
+            if exclude_root and node is another_tree.root:
+                continue
+
+            if unique_id in self.node_map:
+                frappe.throw(
+                    f"Duplicate node '{node.display_name}' detected while merging trees"
+                )
+
+            self.add_to_node_map(node)
+
+    def _update_subtree_depth_and_indent(
+        self,
+        node: BOMTreeNode,
+        base_depth: int
+    ):
+        """
+        Update depth and indent for the given node and its subtree.
+        """
+        node.depth = base_depth
+        node.indent = base_depth
+
+        for child in (node.children or []):
+            self._update_subtree_depth_and_indent(child, base_depth + 1)
+
     def ensure_root_exists(self):
         if not self.root:
             frappe.throw("Root node is not present")
@@ -195,6 +283,7 @@ class BOMTree:
 # ===============================================================================
 #                             Node Action Flag Initializer
 # ===============================================================================
+
 
 class BOMTreeNodeActionFlagInitializer:
     @staticmethod
@@ -232,4 +321,3 @@ class BOMTreeNodeActionFlagInitializer:
             node.can_add_child_item = False
             node.can_add_child_operation = False
             node.can_delete = False if is_child_of_existing_sub_assembly else True
-

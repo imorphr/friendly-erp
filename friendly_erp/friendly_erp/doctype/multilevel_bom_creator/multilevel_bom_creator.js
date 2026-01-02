@@ -97,7 +97,27 @@ function add_item(frm, parent) {
 }
 
 function add_existing_sub_assembly(frm, parent) {
-    frappe.msgprint(`Add Existing Sub-Assembly clicked for ${parent.name}`);
+    const dialog = new NewChildSubassemblyDialogFactory(frm, (values, frm) => {
+        frappe.call({
+            method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_existing_sub_assembly",
+            args: {
+                multilevel_bom_creator_name: frm.doc.name,
+                parent_node_unique_id: parent.node_unique_id,
+                bom_name: values.bom_name,
+                quantity: values.qty,
+                uom: "" // TODO: fetch UOM from item master
+            },
+            freeze: true,
+            freeze_message: __("Adding Sub-assembly..."),
+            callback: function (r) {
+                if (!r.exc) {
+                    frm.reload_doc();
+                    dialog.hide();
+                }
+            }
+        });
+    }).create();
+    dialog.show();
 }
 
 function add_operation(frm, parent) {
@@ -475,6 +495,59 @@ class NewChildItemDialogFactory {
         });
 
         dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
+        return dialog;
+    }
+}
+
+class NewChildSubassemblyDialogFactory {
+    constructor(frm, action) {
+        this.frm = frm;
+        this.action = action;
+    }
+
+    create() {
+        const dialog = new frappe.ui.Dialog({
+            title: __("Add New Sub-assembly"),
+            fields: [
+                {
+                    label: __("BOM"),
+                    fieldtype: "Link",
+                    fieldname: "bom_name",
+                    options: "BOM",
+                    reqd: 1,
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Quantity"),
+                    fieldtype: "Float",
+                    fieldname: "qty",
+                    reqd: 1,
+                    default: 1.0,
+                },
+                // { fieldtype: "Section Break" },
+                // {
+                //     label: __("Currency"),
+                //     fieldtype: "Link",
+                //     fieldname: "currency",
+                //     options: "Currency",
+                //     reqd: 1,
+                //     default: frappe.defaults.get_global_default("currency"),
+                // },
+                // { fieldtype: "Column Break" },
+                // {
+                //     label: __("Conversion Rate"),
+                //     fieldtype: "Float",
+                //     fieldname: "conversion_rate",
+                //     reqd: 1,
+                //     default: 1.0,
+                // },
+            ],
+            primary_action_label: __("Create"),
+            primary_action: (values) => {
+                this.action(values, this.frm);
+            },
+        });
+
         return dialog;
     }
 }

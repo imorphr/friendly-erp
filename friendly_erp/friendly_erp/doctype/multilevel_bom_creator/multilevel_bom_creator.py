@@ -54,6 +54,7 @@ class MultilevelBOMCreator(Document):
         item.sequence = 0
         self.append("item_nodes", item)
 
+    #TODO: Cycle detection pending
     def add_item(self, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
         #TODO: Cycle detection pending
@@ -82,6 +83,45 @@ class MultilevelBOMCreator(Document):
         item.parent_node_unique_id = parent_node_unique_id
         item.node_type = "ITEM"
         item.item_code = item_code
+        item.quantity = quantity
+        item.uom = uom
+        item.sequence = self._get_child_item_node_sequence(parent_node_unique_id)
+        self.append("item_nodes", item)
+
+    # TODO: Add code for ispreexisting bom. And isprojected flag 
+    def add_existing_sub_assembly(self, parent_node_unique_id: str, bom_name: str, quantity: float, uom: str) -> None:
+        """Add a new item under the specified parent node."""
+       
+        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
+        parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
+        if not parent_node:
+            frappe.throw(
+                f"Parent node with ID {parent_node_unique_id} not found.")
+
+        if not parent_node.can_add_child_item:
+            frappe.throw(
+                f"Cannot add sub-assembly under node '{parent_node.display_name}'. "
+                f"Adding child sub-assembly is not allowed for this node."
+            )
+
+        parent_item = next((
+            item for item in self.item_nodes if item.node_unique_id == parent_node_unique_id
+        ), None)
+
+        bom = frappe.get_doc("BOM", bom_name)
+        if not bom:
+            frappe.throw(f"Could not find bom {bom.name}")
+
+        # As child is being added, parent must be a Sub-Assembly
+        if parent_item.node_type != "SUB_ASSEMBLY":
+            parent_item.node_type = "SUB_ASSEMBLY"
+
+        item: MultilevelBOMCreatorItemNode = frappe.new_doc("Multilevel BOM Creator Item Node")
+        item.node_unique_id = frappe.generate_hash()
+        item.parent_node_unique_id = parent_node_unique_id
+        item.node_type = "SUB_ASSEMBLY"
+        item.item_code = bom.item
+        item.bom_no = bom_name 
         item.quantity = quantity
         item.uom = uom
         item.sequence = self._get_child_item_node_sequence(parent_node_unique_id)
@@ -170,13 +210,22 @@ def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
     tree: BOMTree = BOMCreatorTreeBuilder(multilevel_bom_creator).create()
     return tree.to_depth_first_flat_list()
 
-# TODO: Need to add method to add existing sub assembly and at that time consider is_preexisting flag end to end
 @frappe.whitelist()
 def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_item(
         parent_node_unique_id, item_code, quantity, uom)
+    # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
+    multilevel_bom_creator.flags.notify_update = False
+    multilevel_bom_creator.save()
+
+@frappe.whitelist()
+def add_existing_sub_assembly(multilevel_bom_creator_name: str, parent_node_unique_id: str, bom_name: str, quantity: float, uom: str) -> None:
+    multilevel_bom_creator = frappe.get_doc(
+        "Multilevel BOM Creator", multilevel_bom_creator_name)
+    multilevel_bom_creator.add_existing_sub_assembly(
+        parent_node_unique_id, bom_name, quantity, uom)
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()

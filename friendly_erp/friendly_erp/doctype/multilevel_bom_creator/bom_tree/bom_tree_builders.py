@@ -82,6 +82,10 @@ class BOMCreatorTreeBuilder:
 
         # LEAF NODE DETECTION
         if not child_items:
+            if parent_node.node_type == "SUB_ASSEMBLY" and parent_node.bom_no:
+                existing_bom_tree = ExistingBOMTreeBuilder(parent_node.bom_no).create()
+                # Attach existing BOM tree's children to the current child_node
+                self.tree.merge_another_tree(parent_node, existing_bom_tree, True)
             return
 
         sorted_child_items = sorted(child_items, key=lambda x: x.sequence)
@@ -91,14 +95,6 @@ class BOMCreatorTreeBuilder:
                 item, self.tree)
             parent_node.add_child(child_node)
             self._add_children_recursively(child_node)
-            # if item.node_type == "SUB_ASSEMBLY" and item.bom_no and not child_node.children:
-            #     existing_bom_tree = ExistingBOMTreeBuilder(
-            #         item.bom_no, child_node, item.sequence, node_map, leaf_node_list
-            #     ).create()
-            #     # Attach existing BOM tree's children to the current child_node
-            #     for existing_child in existing_bom_tree.root.children:
-            #         child_node.add_child(existing_child)
-
 
 class ExistingBOMTreeBuilder:
     def __init__(self, bom_name: str):
