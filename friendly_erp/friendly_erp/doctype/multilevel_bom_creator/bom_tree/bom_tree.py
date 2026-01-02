@@ -43,6 +43,8 @@ class BOMTreeNode:
             frappe.throw("Node is not attached to any tree")
         if child_node.parent_node_ref is not None:
             frappe.throw(f"Node '{self.display_name}' already has a parent")
+        if child_node.tree_ref is not self.tree_ref:
+            frappe.throw("Node belongs to a different tree")
 
         current = self
         while current:
@@ -208,9 +210,6 @@ class BOMTree:
             frappe.throw("Other tree was not given for merge operation.")
         if not parent_node:
             frappe.throw("Parent node not specified.")
-        if parent_node.tree_ref != self and parent_node.node_unique_id not in self.node_map and self.node_map[parent_node.node_unique_id] != parent_node:
-            frappe.throw(
-                f"Parent node '{parent_node.display_name}' does not belog to tree")
             
         # Validate parent node belongs to this tree
         if (
@@ -237,19 +236,19 @@ class BOMTree:
 
             node.tree_ref = self
 
-        # Step 3: Update depth & indent
-        base_depth = parent_node.depth + 1
-        for node in nodes_to_merge:
-            self._update_subtree_depth_and_indent(node, base_depth)
-
         # Step 4: Attach nodes to parent_node
         for node in nodes_to_merge:
             node.parent_node_ref = None # Reset parent_node_ref as it is going to be child of new parent
             parent_node.add_child(node)
-            # Delete added node from another tree's node_map as node it now merged
+            # Delete added node from another tree's node_map as node is now merged
             del another_tree.node_map[node.node_unique_id]
 
-        # Step 5: Merge node_map entries for all (upto n level) merged nodes 
+        # Step 5: Update depth & indent
+        base_depth = parent_node.depth + 1
+        for node in nodes_to_merge:
+            self._update_subtree_depth_and_indent(node, base_depth)
+
+        # Step 6: Merge node_map entries for all (upto n level) merged nodes 
         for unique_id, node in another_tree.node_map.items():
             # Skip root if excluded
             if exclude_root and node is another_tree.root:

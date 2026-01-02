@@ -17,7 +17,7 @@ class BOMCreatorTreeNodeFactory:
         elif item.node_type == "SUB_ASSEMBLY":
             node = BOMCreatorTreeNodeFactory._create_sub_assembly_node(item)
         else:
-            raise ValueError(f"Unknown node type: {item.node_type}")
+            frappe.throw(f"Unknown node type: {item.node_type}")
 
         node.node_unique_id = item.node_unique_id
         node.sequence = item.sequence
@@ -30,7 +30,7 @@ class BOMCreatorTreeNodeFactory:
         if item.node_type == "OPERATION":
             node = BOMCreatorTreeNodeFactory._create_operation_node(item)
         else:
-            raise ValueError(f"Unknown node type: {item.node_type}")
+            frappe.throw(f"Unknown node type: {item.node_type}")
 
         node.node_unique_id = item.node_unique_id
         node.sequence = item.sequence

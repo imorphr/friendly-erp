@@ -108,7 +108,7 @@ class ExistingBOMTreeBuilder:
         self._traverse_bom(self.bom_name, None, 0)
         return self.tree
 
-    def _traverse_bom(self, bom_name: str, parent_node: BOMTreeNode, sequence: int) -> BOMTreeNode:
+    def _traverse_bom(self, bom_name: str, parent_node: BOMTreeNode, sequence: int):
         bom = frappe.get_doc("BOM", bom_name)
         if not bom:
             frappe.throw(f"BOM '{bom_name}' not found.")
@@ -123,7 +123,7 @@ class ExistingBOMTreeBuilder:
 
     def _add_children_recursively(self, bom, parent_node: BOMTreeNode):
         self._add_child_operation_nodes_recursively(bom, parent_node)
-        self._add_child_item_nodes_recursivly(bom, parent_node)
+        self._add_child_item_nodes_recursively(bom, parent_node)
 
     def _add_child_operation_nodes_recursively(self, bom, parent_node: BOMTreeNode):
         operations = bom.operations or []
@@ -132,7 +132,7 @@ class ExistingBOMTreeBuilder:
                 bom_operation, bom_operation.idx, self.tree)
             parent_node.add_child(child_node)
 
-    def _add_child_item_nodes_recursivly(self, bom, parent_node: BOMTreeNode):
+    def _add_child_item_nodes_recursively(self, bom, parent_node: BOMTreeNode):
         items = bom.items or []
         for bom_item in items:
             is_sub_assembly = self._is_item_representing_sub_assembly(bom_item)
@@ -143,7 +143,7 @@ class ExistingBOMTreeBuilder:
             else:
                 child_node = ExistingBOMTreeNodeFactory.create_from_item(
                     bom_item, bom_item.idx, self.tree)
-            parent_node.add_child(child_node)
+                parent_node.add_child(child_node)
 
     def _is_item_representing_sub_assembly(self, item) -> bool:
         return bool(item.bom_no)
