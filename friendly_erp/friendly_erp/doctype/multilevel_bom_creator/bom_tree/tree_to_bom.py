@@ -4,13 +4,10 @@ from typing import Dict
 import frappe
 
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
-    BOMTree
-)
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_node import (
+    BOMTree,
     BOMTreeNode,
     BOMTreeSubAssemblyNode
 )
-
 
 class TreeToBOMConverter:
     def __init__(self, bom_tree: BOMTree, company: str):

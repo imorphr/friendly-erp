@@ -3,10 +3,9 @@
 
 import frappe
 from frappe.model.document import Document
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
-    BOMTree,
-    BOMCreatorTreeBuilder
-)
+
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import BOMTree
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_builders import BOMCreatorTreeBuilder
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.tree_to_bom import TreeToBOMConverter
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode

@@ -1,20 +1,111 @@
-from collections import defaultdict
-from typing import Dict, List
+from dataclasses import dataclass, field
+from typing import Dict, List, Literal, Optional
 import frappe
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_node import (
-    BOMTreeNode,
-    BOMCreatorTreeNodeFactory,
-    BOMTreeNodeActionFlagInitializer,
-    ExistingBOMTreeNodeFactory
-)
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
+# ===============================================================================
+#                             Tree Node Classes
+# ===============================================================================
+
+NodeType = Literal["ITEM", "SUB_ASSEMBLY", "OPERATION"]
+
+@dataclass
+class BOMTreeNode:
+    node_type: NodeType
+    node_unique_id: str = None
+    internal_name: str = None
+    display_name: str = None
+    parent_node_ref: Optional['BOMTreeNode'] = None
+    tree_ref: 'BOMTree' = None
+    children: List['BOMTreeNode'] = field(default_factory=list)
+    # When node is part of a tree, sequence indicates the order among siblings
+    sequence: int = 0
+    # When node is part of a tree, depth indicates the level in the tree
+    depth: int = 0
+    # Indentation level for display purposes. Frappe UI tree control needs it.
+    # Ideally this is same as depth.
+    indent: int = 0
+    # This flag  indicates whether this node is part of the tree or was projected from existing BOM
+    # Projected nodes are there to give full structure/picture of the BOM to user on UI.
+    # But projected nodes cannot be modified or deleted. Hence this flag helps to identify such nodes.
+    is_projected: bool = False
+
+    # Action flags
+    can_add_child_item: bool = False
+    can_add_child_operation: bool = False
+    can_delete: bool = False
+
+    # ⚠️ Use this method to add child. Do not directly append to children array of node.
+    # Because this method performs some validations and assigns important fields like
+    # parent ref, indent and depth.
+    def add_child(self, child_node: 'BOMTreeNode'):
+        if not self.tree_ref:
+            frappe.throw("Node is not attached to any tree")
+        if child_node.parent_node_ref is not None:
+            frappe.throw(f"Node '{self.display_name}' already has a parent")
+
+        current = self
+        while current:
+            if current is child_node:
+                frappe.throw(f"Circular parent-child relationship detected for {child_node.display_name}")
+            current = current.parent_node_ref
+     
+        child_node.parent_node_ref = self
+        child_node.depth = self.depth + 1
+        # Indent and depth will have same value.
+        child_node.indent = child_node.depth
+
+        self.children.append(child_node)
+        self.tree_ref.add_to_node_map(child_node)
+
+        # Calling Order Important: Always call this after parent_node_ref is assigned and node is added to tree
+        BOMTreeNodeActionFlagInitializer.initialize_action_flags(child_node)
+
+    def mark_as_projected(self):
+        self.is_projected = True
+
+    def is_leaf(self):
+        return not self.children
+
+
+@dataclass
+class BOMTreeItemNode(BOMTreeNode):
+    item_code: str = None
+    quantity: float = 0.0
+    uom: str = None
+
+
+@dataclass
+class BOMTreeSubAssemblyNode(BOMTreeItemNode):
+    bom_no: str = ""
+    # Flag to indicate whether this sub-assembly node corresponds to an existing BOM
+    # While creating Multi-level BOM,
+    # (1) user can add nested item nodes to create new sub-assemblies
+    # for such newly added sub-assemblies, this flag will be False.
+    # (2) or user can reference existing BOMs as sub-assemblies
+    # for such existing BOM referenced sub-assemblies, this flag will be True.
+    # Once all the BOMs from BOM creator tree are created, then ideally all sub-assembly nodes
+    # will have BOM numbers. But at that time also this flag specifically will indicate
+    # whether the sub-assembly was being created afresh while converting tree to BOMs
+    # or the sub-assembly was referencing a pre-existing BOM.
+    is_preexisting_bom: bool = False
+    do_not_explode: bool = False
+
+
+@dataclass
+class BOMTreeOperationNode(BOMTreeNode):
+    operation: str = None
+    time_in_mins: float = 0.0
+    workstation_type: str = None
+    workstation: str = None
+    
+# ===============================================================================
+#                             Tree Class
+# ===============================================================================
 
 class BOMTree:
     def __init__(self):
         self.root: BOMTreeNode = None
-        self.node_map: dict[str, BOMTreeNode] = {}
+        self.node_map: Dict[str, BOMTreeNode] = {}
 
     def set_root(self, root_node: BOMTreeNode):
         if not root_node:
@@ -101,145 +192,44 @@ class BOMTree:
         if not self.root:
             frappe.throw("Root node is not present")
 
+# ===============================================================================
+#                             Node Action Flag Initializer
+# ===============================================================================
 
-class BOMCreatorTreeBuilder:
-    def __init__(self, bom_creator_doc):
-        if not bom_creator_doc:
-            frappe.throw("BOM Creator document is required to build BOM Tree.")
-        self.bom_creator_doc = bom_creator_doc
-        self.creator_nodes: list[MultilevelBOMCreatorItemNode |
-                                 MultilevelBOMCreatorOperationNode] = []
-        self.creator_item_nodes_by_parent: Dict[str,
-                                                List[MultilevelBOMCreatorItemNode]] = defaultdict(list)
-        self.creator_operation_nodes_by_parent: Dict[str,
-                                                     List[MultilevelBOMCreatorOperationNode]] = defaultdict(list)
-        for item_node in (bom_creator_doc.item_nodes or []):
-            self.creator_nodes.append(item_node)
-            self.creator_item_nodes_by_parent[item_node.parent_node_unique_id].append(
-                item_node)  # Map for fast lookup of children
-        for op_node in (bom_creator_doc.operation_nodes or []):
-            self.creator_nodes.append(op_node)
-            self.creator_operation_nodes_by_parent[op_node.parent_node_unique_id].append(
-                op_node)  # Map for fast lookup of children
-
-        self.tree = None
-
-    def create(self) -> BOMTree:
-        if self.tree:
-            frappe.throw("Tree is already built.")
-        self.tree = BOMTree()
-        self._build_tree()
-        return self.tree
-
-    def _build_tree(self):
-        roots = [
-            item for item in self.creator_nodes if not item.parent_node_unique_id]
-        if len(roots) != 1:
-            frappe.throw(
-                "BOM Creator document must have exactly one root item.")
-
-        root_item = roots[0]
-        if root_item.node_type != "SUB_ASSEMBLY":
-            frappe.throw("Root node type should be sub-assembly.")
-        root_node = BOMCreatorTreeNodeFactory.create_from_multilevel_bom_creator_item(
-            root_item, self.tree)
-        self.tree.set_root(root_node)
-        self._add_children_recursively(root_node)
-
-    def _add_children_recursively(self, parent_node: BOMTreeNode):
-        self._add_child_operation_nodes_recursively(parent_node)
-        self._add_child_item_nodes_recursively(parent_node)
-
-    def _add_child_operation_nodes_recursively(self, parent_node: BOMTreeNode):
-        child_items = self.creator_operation_nodes_by_parent.get(
-            parent_node.node_unique_id, [])
-
-        if not child_items:
+class BOMTreeNodeActionFlagInitializer:
+    @staticmethod
+    def initialize_action_flags(node: BOMTreeNode):
+        if not node.parent_node_ref:
+            # This is the root node
+            node.can_add_child_item = True
+            node.can_add_child_operation = True
+            node.can_delete = False  # Root node cannot be deleted
             return
 
-        sorted_child_items = sorted(child_items, key=lambda x: x.sequence)
+        # Traverse up using parent_node_ref up to root and check any parent with type SUB_ASSEMBLY and bom_no is present
+        current_node = node.parent_node_ref
+        is_child_of_existing_sub_assembly = False
+        while current_node:
+            if current_node.node_type == "SUB_ASSEMBLY" and hasattr(current_node, "bom_no") and current_node.bom_no:
+                is_child_of_existing_sub_assembly = True
+                break
+            current_node = current_node.parent_node_ref
 
-        for item in sorted_child_items:
-            child_node = BOMCreatorTreeNodeFactory.create_from_multilevel_bom_creator_operation(
-                item, self.tree)
-            parent_node.add_child(child_node)
-            # self._add_children_recursively(child_node)
+        if node.node_type == "SUB_ASSEMBLY":
+            # If the node is a Sub-Assembly with an existing BOM, no actions allowed because existing BOMs cannot be modified
+            node.can_add_child_item = False if hasattr(
+                node, "bom_no") and node.bom_no or is_child_of_existing_sub_assembly else True
+            node.can_add_child_operation = False if hasattr(
+                node, "bom_no") and node.bom_no or is_child_of_existing_sub_assembly else True
+            node.can_delete = False if is_child_of_existing_sub_assembly else True
 
-    def _add_child_item_nodes_recursively(self, parent_node: BOMTreeNode):
-        child_items = self.creator_item_nodes_by_parent.get(
-            parent_node.node_unique_id, [])
+        elif node.node_type == "ITEM":
+            node.can_add_child_item = False if is_child_of_existing_sub_assembly else True
+            node.can_add_child_operation = False if is_child_of_existing_sub_assembly else True
+            node.can_delete = False if is_child_of_existing_sub_assembly else True
 
-        # LEAF NODE DETECTION
-        if not child_items:
-            return
+        elif node.node_type == "OPERATION":
+            node.can_add_child_item = False
+            node.can_add_child_operation = False
+            node.can_delete = False if is_child_of_existing_sub_assembly else True
 
-        sorted_child_items = sorted(child_items, key=lambda x: x.sequence)
-
-        for item in sorted_child_items:
-            child_node = BOMCreatorTreeNodeFactory.create_from_multilevel_bom_creator_item(
-                item, self.tree)
-            parent_node.add_child(child_node)
-            self._add_children_recursively(child_node)
-            # if item.node_type == "SUB_ASSEMBLY" and item.bom_no and not child_node.children:
-            #     existing_bom_tree = ExistingBOMTreeBuilder(
-            #         item.bom_no, child_node, item.sequence, node_map, leaf_node_list
-            #     ).create()
-            #     # Attach existing BOM tree's children to the current child_node
-            #     for existing_child in existing_bom_tree.root.children:
-            #         child_node.add_child(existing_child)
-
-
-class ExistingBOMTreeBuilder:
-    def __init__(self, bom_name: str):
-        self.bom_name = bom_name
-        self.tree = None
-
-    def create(self) -> BOMTree:
-        if self.tree:
-            frappe.throw("Tree is already built.")
-        self.tree = BOMTree()
-        self._traverse_bom(self.bom_name, None, 0)
-        return self.tree
-
-    def _traverse_bom(self, bom_name: str, parent_node: BOMTreeNode, sequence: int) -> BOMTreeNode:
-        bom = frappe.get_doc("BOM", bom_name)
-        if not bom:
-            frappe.throw(f"BOM '{bom_name}' not found.")
-
-        node = ExistingBOMTreeNodeFactory.create_from_bom(
-            bom, sequence, self.tree)
-        if not parent_node:
-            self.tree.set_root(node)
-        else:
-            parent_node.add_child(node)
-        self._add_children_recursively(bom, node)
-
-    def _add_children_recursively(self, bom, parent_node: BOMTreeNode):
-        self._add_child_operation_nodes_recursively(bom, parent_node)
-        self._add_child_item_nodes_recursivly(bom, parent_node)
-
-    def _add_child_operation_nodes_recursively(self, bom, parent_node: BOMTreeNode):
-        operations = bom.operations or []
-        for bom_operation in operations:
-            child_node = ExistingBOMTreeNodeFactory.create_from_operation(
-                bom_operation, bom_operation.idx, self.tree)
-            parent_node.add_child(child_node)
-
-    def _add_child_item_nodes_recursivly(self, bom, parent_node: BOMTreeNode):
-        items = bom.items or []
-        for bom_item in items:
-            is_sub_assembly = self._is_item_representing_sub_assembly(bom_item)
-            should_not_explode = self._should_not_explode(bom_item)
-            child_node = None
-            if is_sub_assembly and not should_not_explode:
-                self._traverse_bom(bom_item.bom_no, parent_node, bom_item.idx)
-            else:
-                child_node = ExistingBOMTreeNodeFactory.create_from_item(
-                    bom_item, bom_item.idx, self.tree)
-            parent_node.add_child(child_node)
-
-    def _is_item_representing_sub_assembly(self, item) -> bool:
-        return bool(item.bom_no)
-
-    def _should_not_explode(self, item) -> bool:
-        return item.do_not_explode
