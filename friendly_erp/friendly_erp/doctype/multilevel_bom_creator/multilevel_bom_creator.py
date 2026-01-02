@@ -37,12 +37,12 @@ class MultilevelBOMCreator(Document):
             frappe.throw("Company is required.")
 
     def before_save(self) -> None:
-        if not self.items and self.item_code:
+        if not self.item_nodes and self.item_code:
             self.add_root_item()
 
     def add_root_item(self) -> None:
         """Add the root item to the BOM creator document."""
-        if self.items:
+        if self.item_nodes:
             frappe.throw("Root item already exists.")
 
         item: MultilevelBOMCreatorItemNode = frappe.new_doc("Multilevel BOM Creator Item Node")
@@ -53,7 +53,7 @@ class MultilevelBOMCreator(Document):
         item.quantity = self.qty or 1.0
         item.uom = ""
         item.sequence = 0
-        self.append("items", item)
+        self.append("item_nodes", item)
 
     def add_item(self, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
@@ -71,14 +71,14 @@ class MultilevelBOMCreator(Document):
             )
 
         parent_item = next((
-            item for item in self.items if item.node_unique_id == parent_node_unique_id
+            item for item in self.item_nodes if item.node_unique_id == parent_node_unique_id
         ), None)
 
         # As child is being added, parent must be a Sub-Assembly
         if parent_item.node_type != "SUB_ASSEMBLY":
             parent_item.node_type = "SUB_ASSEMBLY"
 
-        item: MultilevelBOMCreatorItemNode = frappe.new_doc("Multilevel BOM Creator Item")
+        item: MultilevelBOMCreatorItemNode = frappe.new_doc("Multilevel BOM Creator Item Node")
         item.node_unique_id = frappe.generate_hash()
         item.parent_node_unique_id = parent_node_unique_id
         item.node_type = "ITEM"
@@ -103,7 +103,7 @@ class MultilevelBOMCreator(Document):
             )
 
         parent_item = next((
-            item for item in self.items if item.node_unique_id == parent_node_unique_id
+            item for item in self.item_nodes if item.node_unique_id == parent_node_unique_id
         ), None)
 
         # As child is being added, parent must be a Sub-Assembly

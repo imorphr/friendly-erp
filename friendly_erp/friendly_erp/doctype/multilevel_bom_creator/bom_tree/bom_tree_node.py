@@ -52,12 +52,16 @@ class BOMTreeNode:
                 frappe.throw(f"Circular parent-child relationship detected for {child_node.display_name}")
             current = current.parent_node_ref
      
-        self.children.append(child_node)
-        self.tree_ref.add_to_node_map(child_node)
         child_node.parent_node_ref = self
         child_node.depth = self.depth + 1
         # Indent and depth will have same value.
         child_node.indent = child_node.depth
+
+        self.children.append(child_node)
+        self.tree_ref.add_to_node_map(child_node)
+
+        # Calling Order Important: Always call this after parent_node_ref is assigned and node is added to tree
+        BOMTreeNodeActionFlagInitializer.initialize_action_flags(child_node)
 
     def mark_as_projected(self):
         self.is_projected = True
@@ -252,7 +256,7 @@ class BOMTreeNodeActionFlagInitializer:
             node.can_add_child_operation = False if is_child_of_existing_sub_assembly else True
             node.can_delete = False if is_child_of_existing_sub_assembly else True
 
-        elif node.node_type in ["OPERATION", "COMPOUND_OPERATION"]:
+        elif node.node_type == "OPERATION":
             node.can_add_child_item = False
             node.can_add_child_operation = False
             node.can_delete = False if is_child_of_existing_sub_assembly else True

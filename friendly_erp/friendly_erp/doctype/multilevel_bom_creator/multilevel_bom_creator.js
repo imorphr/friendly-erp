@@ -343,16 +343,12 @@ class MenuProvider {
         }
 
         if (ctx.can_delete) {
-            if (ctx.node_type === "ITEM") {
-                items.push(
-                    { label: "Delete", action: delete_item }
-                );
-            }
-            else if (ctx.node_type === "SUB_ASSEMBLY") {
-                items.push(
-                    { label: "Delete", action: delete_sub_assembly }
-                );
-            }
+            const delete_handler = ctx.node_type === "ITEM"
+                ? delete_item
+                : (ctx.node_type === "SUB_ASSEMBLY" ? delete_sub_assembly : delete_operation);
+            items.push(
+                { label: "Delete", action: delete_handler },
+            );
         }
 
         return items;
