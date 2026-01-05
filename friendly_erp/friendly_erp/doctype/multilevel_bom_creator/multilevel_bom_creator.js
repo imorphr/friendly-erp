@@ -72,77 +72,103 @@ function create_boms(frm) {
 }
 
 //============ Tree item handlers ============
-function add_item(frm, parent) {
+function show_item_dialog(frm, parent) {
     const dialog = new NewChildItemDialogFactory(frm, (values, frm) => {
-        frappe.call({
-            method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_item",
-            args: {
-                multilevel_bom_creator_name: frm.doc.name,
-                parent_node_unique_id: parent.node_unique_id,
-                item_code: values.item_code,
-                quantity: values.qty,
-                uom: "" // TODO: fetch UOM from item master
-            },
-            freeze: true,
-            freeze_message: __("Adding Item..."),
-            callback: function (r) {
-                if (!r.exc) {
-                    frm.reload_doc();
-                    dialog.hide();
-                }
-            }
-        });
+        const bom_name = values.bom_name;
+        if (bom_name !== null && bom_name !== undefined && bom_name.trim().length > 0) {
+            add_existing_sub_assembly(frm, parent, values);
+        } else {
+            add_item(frm, parent, values);
+        }
+        dialog.hide();
     }).create();
     dialog.show();
 }
 
-function add_existing_sub_assembly(frm, parent) {
-    const dialog = new NewChildSubassemblyDialogFactory(frm, (values, frm) => {
-        frappe.call({
-            method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_existing_sub_assembly",
-            args: {
-                multilevel_bom_creator_name: frm.doc.name,
-                parent_node_unique_id: parent.node_unique_id,
-                bom_name: values.bom_name,
-                quantity: values.qty,
-                uom: "" // TODO: fetch UOM from item master
-            },
-            freeze: true,
-            freeze_message: __("Adding Sub-assembly..."),
-            callback: function (r) {
-                if (!r.exc) {
-                    frm.reload_doc();
-                    dialog.hide();
-                }
-            }
-        });
-    }).create();
-    dialog.show();
-}
-
-function add_operation(frm, parent) {
+function show_operation_dialog(frm, parent) {
     const dialog = new NewChildOperationDialogFactory(frm, (values, frm) => {
-        frappe.call({
-            method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_operation",
-            args: {
-                multilevel_bom_creator_name: frm.doc.name,
-                parent_node_unique_id: parent.node_unique_id,
-                operation_name: values.operation_name,
-                time_in_mins: values.time_in_mins,
-                workstation_type: values.workstation_type,
-                workstation: values.workstation
-            },
-            freeze: true,
-            freeze_message: __("Adding Operation..."),
-            callback: function (r) {
-                if (!r.exc) {
-                    frm.reload_doc();
-                    dialog.hide();
-                }
-            }
-        });
+        add_operation(frm, parent, values);
+        dialog.hide();
     }).create();
     dialog.show();
+}
+
+function duplicate_bom(frm, parent) {
+    frappe.call({
+        method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.duplicate_bom_structure",
+        args: {
+            multilevel_bom_creator_name: frm.doc.name,
+            node_unique_id: parent.node_unique_id,
+        },
+        freeze: true,
+        freeze_message: __("Duplicating BOM..."),
+        callback: function (r) {
+            if (!r.exc) {
+                frm.reload_doc();
+            }
+        }
+    });
+}
+
+function add_item(frm, parent, values) {
+    frappe.call({
+        method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_item",
+        args: {
+            multilevel_bom_creator_name: frm.doc.name,
+            parent_node_unique_id: parent.node_unique_id,
+            item_code: values.item_code,
+            quantity: values.qty,
+            uom: "" // TODO: fetch UOM from item master
+        },
+        freeze: true,
+        freeze_message: __("Adding Item..."),
+        callback: function (r) {
+            if (!r.exc) {
+                frm.reload_doc();
+            }
+        }
+    });
+}
+
+function add_existing_sub_assembly(frm, parent, values) {
+    frappe.call({
+        method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_existing_sub_assembly",
+        args: {
+            multilevel_bom_creator_name: frm.doc.name,
+            parent_node_unique_id: parent.node_unique_id,
+            bom_name: values.bom_name,
+            quantity: values.qty,
+            uom: "" // TODO: fetch UOM from item master
+        },
+        freeze: true,
+        freeze_message: __("Adding Sub-assembly..."),
+        callback: function (r) {
+            if (!r.exc) {
+                frm.reload_doc();
+            }
+        }
+    });
+}
+
+function add_operation(frm, parent, values) {
+    frappe.call({
+        method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_operation",
+        args: {
+            multilevel_bom_creator_name: frm.doc.name,
+            parent_node_unique_id: parent.node_unique_id,
+            operation_name: values.operation_name,
+            time_in_mins: values.time_in_mins,
+            workstation_type: values.workstation_type,
+            workstation: values.workstation
+        },
+        freeze: true,
+        freeze_message: __("Adding Operation..."),
+        callback: function (r) {
+            if (!r.exc) {
+                frm.reload_doc();
+            }
+        }
+    });
 }
 
 function delete_item(frm, item) {
@@ -155,6 +181,15 @@ function delete_sub_assembly(frm, sub_assembly) {
 
 function delete_operation(frm, operation) {
     frappe.msgprint(`Delete Operation clicked for ${operation.name}`);
+}
+
+function get_bom_filter_object(frm, item_code) {
+    return {
+        item: item_code,
+        is_active: 1,
+        company: frm.doc.company,
+        docstatus: 1
+    }
 }
 
 //============ Helper Classes ============
@@ -203,6 +238,10 @@ class BOMTreeHelper {
                 id: "action",
                 width: 40,
                 format: function (value, row, column, data) {
+                    if (!self.is_action_present_for_node(data)) {
+                        return "";
+                    }
+
                     return `
                         <div class="dropdown bom-row-dropdown">
                             <span
@@ -254,6 +293,15 @@ class BOMTreeHelper {
         });
 
         this.register_row_action_click_handler();
+    }
+
+    is_action_present_for_node(data) {
+        if (data.is_projected) {
+            return false;
+        }
+        if (data.can_add_child_item || data.can_add_child_operation || data.can_delete) {
+            return true;
+        }
     }
 
     //====== Menu related functions =======
@@ -348,17 +396,21 @@ class MenuProvider {
     static getRowMenuItems(ctx) {
 
         const items = [];
-
         if (ctx.can_add_child_item) {
             items.push(
-                { label: "Add Item", action: add_item },
-                { label: "Add Existing Sub-Assembly", action: add_existing_sub_assembly },
+                { label: "Add Item", action: show_item_dialog }
             );
         }
 
         if (ctx.can_add_child_operation) {
             items.push(
-                { label: "Add Operation", action: add_operation },
+                { label: "Add Operation", action: show_operation_dialog },
+            );
+        }
+
+        if (ctx.can_duplicate_bom) {
+            items.push(
+                { label: "Duplicate BOM", action: duplicate_bom }
             );
         }
 
@@ -452,8 +504,9 @@ class NewChildItemDialogFactory {
     }
 
     create() {
+        const self = this;
         const dialog = new frappe.ui.Dialog({
-            title: __("Add New Item"),
+            title: __("Add Item"),
             fields: [
                 {
                     label: __("Item Code"),
@@ -464,59 +517,16 @@ class NewChildItemDialogFactory {
                 },
                 { fieldtype: "Column Break" },
                 {
-                    label: __("Quantity"),
-                    fieldtype: "Float",
-                    fieldname: "qty",
-                    reqd: 1,
-                    default: 1.0,
-                },
-                // { fieldtype: "Section Break" },
-                // {
-                //     label: __("Currency"),
-                //     fieldtype: "Link",
-                //     fieldname: "currency",
-                //     options: "Currency",
-                //     reqd: 1,
-                //     default: frappe.defaults.get_global_default("currency"),
-                // },
-                // { fieldtype: "Column Break" },
-                // {
-                //     label: __("Conversion Rate"),
-                //     fieldtype: "Float",
-                //     fieldname: "conversion_rate",
-                //     reqd: 1,
-                //     default: 1.0,
-                // },
-            ],
-            primary_action_label: __("Create"),
-            primary_action: (values) => {
-                this.action(values, this.frm);
-            },
-        });
-
-        dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
-        return dialog;
-    }
-}
-
-class NewChildSubassemblyDialogFactory {
-    constructor(frm, action) {
-        this.frm = frm;
-        this.action = action;
-    }
-
-    create() {
-        const dialog = new frappe.ui.Dialog({
-            title: __("Add New Sub-assembly"),
-            fields: [
-                {
                     label: __("BOM"),
                     fieldtype: "Link",
                     fieldname: "bom_name",
                     options: "BOM",
-                    reqd: 1,
+                    hidden: 1,
+                    description: __(
+                        "Select a BOM if you want to use an existing structure. Leave it blank to add the item and create a new structure."
+                    )
                 },
-                { fieldtype: "Column Break" },
+                { fieldtype: "Section Break" },
                 {
                     label: __("Quantity"),
                     fieldtype: "Float",
@@ -524,31 +534,42 @@ class NewChildSubassemblyDialogFactory {
                     reqd: 1,
                     default: 1.0,
                 },
-                // { fieldtype: "Section Break" },
-                // {
-                //     label: __("Currency"),
-                //     fieldtype: "Link",
-                //     fieldname: "currency",
-                //     options: "Currency",
-                //     reqd: 1,
-                //     default: frappe.defaults.get_global_default("currency"),
-                // },
-                // { fieldtype: "Column Break" },
-                // {
-                //     label: __("Conversion Rate"),
-                //     fieldtype: "Float",
-                //     fieldname: "conversion_rate",
-                //     reqd: 1,
-                //     default: 1.0,
-                // },
             ],
             primary_action_label: __("Create"),
             primary_action: (values) => {
                 this.action(values, this.frm);
-            },
+            }
         });
 
+        dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
+        dialog.fields_dict.item_code.df.onchange = () => this.on_item_change(dialog);
+        dialog.fields_dict.bom_name.get_query = function () {
+            return {
+                filters: get_bom_filter_object(self.frm, dialog.get_value("item_code"))
+            };
+        }
         return dialog;
+    }
+
+    on_item_change(dialog) {
+        const item_code = dialog.get_value("item_code");
+        dialog.set_value("bom_name", null);
+
+        if (!item_code) {
+            dialog.set_df_property("bom_name", "hidden", 1);
+            return;
+        }
+
+        frappe.db.get_list("BOM", {
+            filters: get_bom_filter_object(this.frm, item_code),
+            fields: ["name"]
+        }).then(boms => {
+            if ((boms || []).length > 0) {
+                dialog.set_df_property("bom_name", "hidden", 0);
+            } else {
+                dialog.set_df_property("bom_name", "hidden", 1);
+            }
+        });
     }
 }
 

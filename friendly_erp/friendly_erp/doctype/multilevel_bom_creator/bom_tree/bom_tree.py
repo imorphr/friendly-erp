@@ -34,6 +34,7 @@ class BOMTreeNode:
     can_add_child_item: bool = False
     can_add_child_operation: bool = False
     can_delete: bool = False
+    can_duplicate_bom: bool = False
 
     # ⚠️ Use this method to add child. Do not directly append to children array of node.
     # Because this method performs some validations and assigns important fields like
@@ -74,6 +75,7 @@ class BOMTreeNode:
 @dataclass
 class BOMTreeItemNode(BOMTreeNode):
     item_code: str = None
+    do_not_explode: bool = False
     quantity: float = 0.0
     uom: str = None
 
@@ -92,7 +94,6 @@ class BOMTreeSubAssemblyNode(BOMTreeItemNode):
     # whether the sub-assembly was being created afresh while converting tree to BOMs
     # or the sub-assembly was referencing a pre-existing BOM.
     is_preexisting_bom: bool = False
-    do_not_explode: bool = False
 
 
 @dataclass
@@ -190,6 +191,7 @@ class BOMTree:
         """
         self.ensure_root_exists()
 
+        # To avoid recursion, self.node_map is used which has all the nodes of the tree
         for node in self.node_map.values():
             node.mark_as_projected()
 
@@ -292,6 +294,15 @@ class BOMTreeNodeActionFlagInitializer:
             node.can_add_child_item = True
             node.can_add_child_operation = True
             node.can_delete = False  # Root node cannot be deleted
+            node.can_duplicate_bom = False
+            return
+        
+        # If current node is projected node then do not allow any option on it
+        if node.is_projected:
+            node.can_add_child_item = False
+            node.can_add_child_operation = False
+            node.can_delete = False
+            node.can_duplicate_bom = False
             return
 
         # Traverse up using parent_node_ref up to root and check any parent with type SUB_ASSEMBLY and bom_no is present
@@ -310,13 +321,18 @@ class BOMTreeNodeActionFlagInitializer:
             node.can_add_child_operation = False if hasattr(
                 node, "bom_no") and node.bom_no or is_child_of_existing_sub_assembly else True
             node.can_delete = False if is_child_of_existing_sub_assembly else True
+            node.can_duplicate_bom = True if hasattr(
+                node, "bom_no") and node.bom_no and not is_child_of_existing_sub_assembly and hasattr(
+                node, "is_preexisting_bom") and node.is_preexisting_bom else False
 
         elif node.node_type == "ITEM":
             node.can_add_child_item = False if is_child_of_existing_sub_assembly else True
             node.can_add_child_operation = False if is_child_of_existing_sub_assembly else True
             node.can_delete = False if is_child_of_existing_sub_assembly else True
+            node.can_duplicate_bom = False
 
         elif node.node_type == "OPERATION":
             node.can_add_child_item = False
             node.can_add_child_operation = False
             node.can_delete = False if is_child_of_existing_sub_assembly else True
+            node.can_duplicate_bom = False

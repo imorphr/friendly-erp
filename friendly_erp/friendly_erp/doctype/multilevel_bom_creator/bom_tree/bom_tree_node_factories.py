@@ -46,6 +46,7 @@ class BOMCreatorTreeNodeFactory:
             display_name=item.item_code,    # TODO: should we use item_name here?
             quantity=item.quantity,
             uom=item.uom,
+            do_not_explode=item.do_not_explode
         )
 
     @staticmethod
@@ -54,10 +55,12 @@ class BOMCreatorTreeNodeFactory:
             node_type="SUB_ASSEMBLY",
             item_code=item.item_code,
             bom_no=item.bom_no,
+            is_preexisting_bom=item.is_preexisting_bom,
             internal_name=item.item_code,
             display_name=item.item_code,
             quantity=item.quantity,
             uom=item.uom,
+            do_not_explode=item.do_not_explode
         )
 
     @staticmethod
@@ -85,6 +88,7 @@ class ExistingBOMTreeNodeFactory:
             sequence=sequence,
             item_code=bom.item,
             bom_no=bom.name,
+            is_preexisting_bom=True,
             internal_name=bom.item,
             display_name=bom.item,
             quantity=bom.quantity,
@@ -121,3 +125,68 @@ class ExistingBOMTreeNodeFactory:
             workstation_type=bom_operation.workstation_type,
             workstation=bom_operation.workstation,
         )
+    
+class BOMTreeNodeToCreatorItemConverter:
+    """
+    Converts BOMTree nodes into Multilevel BOM Creator child documents.
+    This class performs only structural mapping. It does NOT save documents.
+    """
+    
+    # ---------------------------------------------------------------------
+    # Item / Sub-Assembly
+    # ---------------------------------------------------------------------
+
+    @staticmethod
+    def convert_item_node(
+        node: BOMTreeItemNode
+    ) -> MultilevelBOMCreatorItemNode:
+        if node.node_type not in ("ITEM", "SUB_ASSEMBLY"):
+            frappe.throw("Invalid node type for item conversion")
+
+        doc = frappe.new_doc("Multilevel BOM Creator Item Node")
+
+        doc.node_type = node.node_type
+        doc.node_unique_id = node.node_unique_id
+        doc.parent_node_unique_id = node.parent_node_ref.node_unique_id
+        doc.sequence = node.sequence
+        doc.item_code = node.item_code
+        doc.quantity = node.quantity
+        doc.uom = node.uom
+        doc.do_not_explode = node.do_not_explode
+        return doc
+
+    @staticmethod
+    def convert_sub_assembly_node(
+        node: BOMTreeSubAssemblyNode,
+    ) -> MultilevelBOMCreatorItemNode:
+        if node.node_type != "SUB_ASSEMBLY":
+            frappe.throw("Invalid node type for sub-assembly conversion")
+
+        doc = BOMTreeNodeToCreatorItemConverter.convert_item_node(node)
+        doc.bom_no = node.bom_no
+        doc.is_preexisting_bom = node.is_preexisting_bom
+        return doc
+
+    # ---------------------------------------------------------------------
+    # Operation
+    # ---------------------------------------------------------------------
+
+    @staticmethod
+    def convert_operation_node(
+        node: BOMTreeOperationNode
+    ) -> MultilevelBOMCreatorOperationNode:
+        if node.node_type != "OPERATION":
+            frappe.throw("Invalid node type for operation conversion")
+
+        doc = frappe.new_doc("Multilevel BOM Creator Operation Node")
+
+        doc.node_type = "OPERATION"
+        doc.node_unique_id = node.node_unique_id
+        doc.parent_node_unique_id = node.parent_node_ref.node_unique_id
+        doc.sequence = node.sequence
+
+        doc.operation = node.operation
+        doc.time_in_mins = node.time_in_mins
+        doc.workstation_type = node.workstation_type
+        doc.workstation = node.workstation
+        return doc

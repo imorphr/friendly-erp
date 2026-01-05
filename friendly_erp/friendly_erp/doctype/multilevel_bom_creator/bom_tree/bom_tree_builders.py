@@ -80,10 +80,14 @@ class BOMCreatorTreeBuilder:
         child_items = self.creator_item_nodes_by_parent.get(
             parent_node.node_unique_id, [])
 
-        # LEAF NODE DETECTION
+        # Existing BOM PROJECTION as well as LEAF NODE DETECTION
         if not child_items:
-            if parent_node.node_type == "SUB_ASSEMBLY" and parent_node.bom_no:
+            if parent_node.node_type == "SUB_ASSEMBLY" and parent_node.is_preexisting_bom and parent_node.bom_no:
                 existing_bom_tree = ExistingBOMTreeBuilder(parent_node.bom_no).create()
+                # As this tree is being created from existing BOM, mark all nodes as projected
+                # Ideally these nodes are not coming from multilevel bom creator, but they are
+                # projected from the existing bom node of the multilevel bom creator.
+                existing_bom_tree.mark_all_nodes_as_projected()
                 # Attach existing BOM tree's children to the current child_node
                 self.tree.merge_another_tree(parent_node, existing_bom_tree, True)
             return
