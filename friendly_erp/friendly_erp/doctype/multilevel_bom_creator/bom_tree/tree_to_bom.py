@@ -6,6 +6,8 @@ import frappe
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
     BOMTree,
     BOMTreeNode,
+    BOMTreeItemNode,
+    BOMTreeOperationNode,
     BOMTreeSubAssemblyNode
 )
 
@@ -102,7 +104,7 @@ class TreeToBOMConverter:
         bom.buying_price_list = None    #TODO: As of now hardcoding
         return bom
 
-    def _create_bom_item(self, child: BOMTreeNode):
+    def _create_bom_item(self, child: BOMTreeItemNode):
         item = frappe.new_doc("BOM Item")
         item.item_code = child.item_code
         item.qty = child.quantity
@@ -111,7 +113,7 @@ class TreeToBOMConverter:
         item.stock_qty = child.quantity     # TODO: think
         item.stock_uom = child.uom          # TODO: think
         item.conversion_factor = 1          # TODO: As of now hardcoding
-        item.do_not_explode = 0             # TODO: As of now hardcoding
+        item.do_not_explode = child.do_not_explode
         item.source_warehouse = None        # TODO: As of now hardcoding
         item.allow_alternative_item = 0     # TODO: As of now hardcoding
 
@@ -120,7 +122,7 @@ class TreeToBOMConverter:
 
         return item
 
-    def _create_bom_operation(self, child: BOMTreeNode):
+    def _create_bom_operation(self, child: BOMTreeOperationNode):
         operation = frappe.new_doc("BOM Operation")
         operation.operation = child.operation
         operation.time_in_mins = child.time_in_mins

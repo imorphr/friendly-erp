@@ -22,6 +22,7 @@ class MultilevelBOMCreatorItemNode(Document):
 		has_variants: DF.Check
 		include_item_in_manufacturing: DF.Check
 		inspection_required: DF.Check
+		is_preexisting_bom: DF.Check
 		is_stock_item: DF.Check
 		item_code: DF.Link | None
 		item_operation: DF.Link | None
