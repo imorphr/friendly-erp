@@ -110,6 +110,23 @@ function duplicate_bom(frm, parent) {
     });
 }
 
+function delete_item_or_operation(frm, parent) {
+    frappe.call({
+        method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.delete_item_or_operation",
+        args: {
+            multilevel_bom_creator_name: frm.doc.name,
+            node_unique_id: parent.node_unique_id,
+        },
+        freeze: true,
+        freeze_message: __("Deleting..."),
+        callback: function (r) {
+            if (!r.exc) {
+                frm.reload_doc();
+            }
+        }
+    });
+}
+
 function add_item(frm, parent, values) {
     frappe.call({
         method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_item",
@@ -169,18 +186,6 @@ function add_operation(frm, parent, values) {
             }
         }
     });
-}
-
-function delete_item(frm, item) {
-    frappe.msgprint(`Delete clicked for ${item.name}`);
-}
-
-function delete_sub_assembly(frm, sub_assembly) {
-    frappe.msgprint(`Delete Sub-Assembly clicked for ${sub_assembly.name}`);
-}
-
-function delete_operation(frm, operation) {
-    frappe.msgprint(`Delete Operation clicked for ${operation.name}`);
 }
 
 function get_bom_filter_object(frm, item_code) {
@@ -415,11 +420,8 @@ class MenuProvider {
         }
 
         if (ctx.can_delete) {
-            const delete_handler = ctx.node_type === "ITEM"
-                ? delete_item
-                : (ctx.node_type === "SUB_ASSEMBLY" ? delete_sub_assembly : delete_operation);
             items.push(
-                { label: "Delete", action: delete_handler },
+                { label: "Delete", action: delete_item_or_operation },
             );
         }
 

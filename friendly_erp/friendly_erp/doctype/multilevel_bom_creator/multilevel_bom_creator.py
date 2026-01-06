@@ -49,6 +49,7 @@ class MultilevelBOMCreator(Document):
 
     def add_root_item(self) -> None:
         """Add the root item to the BOM creator document."""
+        self.ensure_draft_status()
         if self.item_nodes:
             frappe.throw("Root item already exists.")
 
@@ -67,6 +68,7 @@ class MultilevelBOMCreator(Document):
     def add_item(self, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
         # TODO: Cycle detection pending
+        self.ensure_draft_status()
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
@@ -106,7 +108,7 @@ class MultilevelBOMCreator(Document):
 
     def add_existing_sub_assembly(self, parent_node_unique_id: str, bom_name: str, quantity: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
-
+        self.ensure_draft_status()
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
@@ -156,6 +158,7 @@ class MultilevelBOMCreator(Document):
 
     def add_operation(self, parent_node_unique_id: str, operation_name: str, time_in_mins: float, workstation_type: str, workstation: str) -> None:
         """Add a new operation under the specified parent node."""
+        self.ensure_draft_status()
         if not workstation and not workstation_type:
             frappe.throw(
                 "Provide atleast one of Workstation Type and Workstation")
@@ -195,6 +198,7 @@ class MultilevelBOMCreator(Document):
         self.append("operation_nodes", operation)
 
     def duplicate_bom_structure(self, node_unique_id: str) -> None:
+        self.ensure_draft_status()
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         node: BOMTreeSubAssemblyNode = tree.find_node_by_unique_id(
             node_unique_id)
@@ -258,6 +262,29 @@ class MultilevelBOMCreator(Document):
         parent_creator_item.is_preexisting_bom = False
         parent_creator_item.do_not_explode = False
 
+    def delete_item_or_operation(self, node_unique_id: str) -> None:
+        self.ensure_draft_status()
+        if not node_unique_id:
+            frappe.throw("Node unique id is required")
+
+        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
+        node = tree.find_node_by_unique_id(node_unique_id)
+        if not node:
+            frappe.throw(f"Node '{node_unique_id}' not found")
+        if not node.can_delete:
+            frappe.throw(f"Node '{node.display_name}' cannot be deleted")
+        node_ids_to_delete = tree.get_descendant_node_ids(node_unique_id)
+        # Delete operation nodes
+        self.operation_nodes = [
+            row for row in (self.operation_nodes or [])
+            if row.node_unique_id not in node_ids_to_delete
+        ]
+        # Delete item nodes
+        self.item_nodes = [
+            row for row in (self.item_nodes or [])
+            if row.node_unique_id not in node_ids_to_delete
+        ]
+
     def create_boms(self) -> dict[str, str]:
         """
         Create ERPNext BOMs from the multilevel BOM tree and
@@ -310,6 +337,10 @@ class MultilevelBOMCreator(Document):
                 "docstatus": 1
             }
         )
+    
+    def ensure_draft_status(self):
+        if self.docstatus != 0:
+            frappe.throw("Can not change submitted document.")
 
 
 @frappe.whitelist()
@@ -365,6 +396,14 @@ def duplicate_bom_structure(
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
 
+@frappe.whitelist()
+def delete_item_or_operation(multilevel_bom_creator_name: str, node_unique_id: str) -> None:
+    multilevel_bom_creator = frappe.get_doc(
+        "Multilevel BOM Creator", multilevel_bom_creator_name)
+    multilevel_bom_creator.delete_item_or_operation(node_unique_id)
+    # Do not send update notification through websocket, because frappe form auto refreshes on this notification causes flicker on the tree UI
+    multilevel_bom_creator.flags.notify_update = False
+    multilevel_bom_creator.save()
 
 @frappe.whitelist()
 def create_boms(multilevel_bom_creator_name: str) -> dict[str, str]:
