@@ -206,10 +206,12 @@ class BOMTreeHelper {
         this.data_table = null;
         this.current_open_menu = null;
         this.NODE_TYPE_ICONS = {
-            "SUB_ASSEMBLY": "fa fa-cubes",              // multi cube icon
-            "ITEM": "fa fa-cube",                       // single cube
-            "COMPOUND_OPERATION": "fa fa-cogs",         // multi gear icon
-            "OPERATION": "fa fa-cog"                    // gear for operation
+            "SUB_ASSEMBLY": "fa fa-cubes",               // multi cube icon
+            "ITEM": "fa fa-cube",                        // single cube
+            "COMPOUND_OPERATION": "fa fa-cogs",          // multi gear icon
+            "OPERATION": "fa fa-cog",                    // gear for operation
+            "SUB_OPERATION": "fa fa-cog",                // gear for sub operation
+            "OPERATION_WITH_SUB_OPERATION": "fa fa-cogs" //multi gear icon if operation has sub operations
         };
     }
 
@@ -221,10 +223,10 @@ class BOMTreeHelper {
                 id: "display_name",
                 width: 670,
                 format: function (value, row, column, data) {
-                    const icon_class = self.NODE_TYPE_ICONS[data.node_type] || "fa fa-question-circle";
-                    const icon_margin = (data.node_type === "ITEM" || data.node_type === "OPERATION")
-                        ? 'margin-left:19px;'
-                        : '';
+                    const icon_class = self.get_node_icon(data);
+                    const icon_margin = data.child_count > 0
+                        ? ''
+                        : 'margin-left:19px;';
                     return `<i class="${icon_class}" style="${icon_margin} margin-right: 5px;"></i> ${value}`;
                 }
             },
@@ -263,6 +265,12 @@ class BOMTreeHelper {
                 }
             }
         ];
+    }
+
+    get_node_icon(data) {
+        if ((data.node_type == "OPERATION" || data.node_type == "SUB_OPERATION") && data.child_count > 0)
+            return this.NODE_TYPE_ICONS["OPERATION_WITH_SUB_OPERATION"];
+        return this.NODE_TYPE_ICONS[data.node_type] || "fa fa-question-circle";
     }
 
     get_tree_parent_html_el() {

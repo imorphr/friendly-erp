@@ -6,7 +6,7 @@ import frappe
 #                             Tree Node Classes
 # ===============================================================================
 
-NodeType = Literal["ITEM", "SUB_ASSEMBLY", "OPERATION"]
+NodeType = Literal["ITEM", "SUB_ASSEMBLY", "OPERATION", "SUB_OPERATION"]
 
 
 @dataclass
@@ -18,6 +18,7 @@ class BOMTreeNode:
     parent_node_ref: Optional['BOMTreeNode'] = None
     tree_ref: 'BOMTree' = None
     children: List['BOMTreeNode'] = field(default_factory=list)
+    child_count: int = 0
     # When node is part of a tree, sequence indicates the order among siblings
     sequence: int = 0
     # When node is part of a tree, depth indicates the level in the tree
@@ -60,6 +61,7 @@ class BOMTreeNode:
         child_node.indent = child_node.depth
 
         self.children.append(child_node)
+        self.child_count = len(self.children)
         self.tree_ref.add_to_node_map(child_node)
 
         # Calling Order Important: Always call this after parent_node_ref is assigned and node is added to tree
@@ -102,6 +104,11 @@ class BOMTreeOperationNode(BOMTreeNode):
     time_in_mins: float = 0.0
     workstation_type: str = None
     workstation: str = None
+
+@dataclass
+class BOMTreeSubOperationNode(BOMTreeOperationNode):
+    pass
+
 
 # ===============================================================================
 #                             Tree Class
@@ -358,4 +365,10 @@ class BOMTreeNodeActionFlagInitializer:
             node.can_add_child_item = False
             node.can_add_child_operation = False
             node.can_delete = False if is_child_of_existing_sub_assembly else True
+            node.can_duplicate_bom = False
+
+        elif node.node_type == "SUB_OPERATION":
+            node.can_add_child_item = False
+            node.can_add_child_operation = False
+            node.can_delete = False
             node.can_duplicate_bom = False
