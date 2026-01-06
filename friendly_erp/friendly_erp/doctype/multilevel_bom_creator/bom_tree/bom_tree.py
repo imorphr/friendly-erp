@@ -184,6 +184,29 @@ class BOMTree:
     def get_leaf_nodes(self) -> list[BOMTreeNode]:
         self.ensure_root_exists()
         return [node for node in self.node_map.values() if not node.children]
+    
+    def get_descendant_node_ids(self, node_unique_id: str) -> set[str]:
+        """
+        Return a set of node_unique_id values for the given node and
+        all of its descendants (up to n levels deep).
+
+        The returned set always includes the given node itself.
+        """
+        self.ensure_root_exists()
+
+        start_node = self.find_node_by_unique_id(node_unique_id)
+        if not start_node:
+            frappe.throw(f"Node with id '{node_unique_id}' not found in tree")
+
+        descendant_ids: set[str] = set()
+
+        def _collect(node: BOMTreeNode):
+            descendant_ids.add(node.node_unique_id)
+            for child in (node.children or []):
+                _collect(child)
+
+        _collect(start_node)
+        return descendant_ids
 
     def mark_all_nodes_as_projected(self) -> None:
         """
