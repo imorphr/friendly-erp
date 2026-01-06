@@ -115,6 +115,12 @@ class MultilevelBOMCreator(Document):
         if not self.item_nodes and self.item_code:
             self.add_root_item()
 
+    def before_submit(self) -> None:
+        total_count = len(self.item_nodes or []) + len(self.operation_nodes or [])
+        if total_count < 2:
+            frappe.throw("No child items or operations found.")
+        self.create_boms()
+
     def add_root_item(self) -> None:
         """Add the root item to the BOM creator document."""
         self.ensure_draft_status()
@@ -478,13 +484,13 @@ def delete_item_or_operation(multilevel_bom_creator_name: str, node_unique_id: s
     multilevel_bom_creator.save()
 
 
-@frappe.whitelist()
-def create_boms(multilevel_bom_creator_name: str) -> dict[str, str]:
-    multilevel_bom_creator = frappe.get_doc(
-        "Multilevel BOM Creator",
-        multilevel_bom_creator_name
-    )
-    new_boms = multilevel_bom_creator.create_boms()
-    # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
-    multilevel_bom_creator.flags.notify_update = False
-    multilevel_bom_creator.save()
+# @frappe.whitelist()
+# def create_boms(multilevel_bom_creator_name: str) -> dict[str, str]:
+#     multilevel_bom_creator = frappe.get_doc(
+#         "Multilevel BOM Creator",
+#         multilevel_bom_creator_name
+#     )
+#     new_boms = multilevel_bom_creator.create_boms()
+#     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
+#     multilevel_bom_creator.flags.notify_update = False
+#     multilevel_bom_creator.save()
