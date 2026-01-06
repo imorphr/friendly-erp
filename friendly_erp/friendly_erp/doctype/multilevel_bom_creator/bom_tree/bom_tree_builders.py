@@ -4,7 +4,9 @@ import frappe
 
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
     BOMTree,
-    BOMTreeNode
+    BOMTreeNode,
+    BOMTreeOperationNode,
+    BOMTreeSubOperationNode
 )
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_node_factories import (
     BOMCreatorTreeNodeFactory,
@@ -12,6 +14,9 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_
 )
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
+
+# TODO: Add cycle detection for all trees
+
 
 class BOMCreatorTreeBuilder:
     def __init__(self, bom_creator_doc):
@@ -74,7 +79,10 @@ class BOMCreatorTreeBuilder:
             child_node = BOMCreatorTreeNodeFactory.create_from_multilevel_bom_creator_operation(
                 item, self.tree)
             parent_node.add_child(child_node)
-            # self._add_children_recursively(child_node)
+            sub_operation_tree = OperationTreeBuilder(item.operation).create()
+            sub_operation_tree.mark_all_nodes_as_projected()
+            self.tree.merge_another_tree(child_node, sub_operation_tree, True)
+
 
     def _add_child_item_nodes_recursively(self, parent_node: BOMTreeNode):
         child_items = self.creator_item_nodes_by_parent.get(
@@ -83,7 +91,8 @@ class BOMCreatorTreeBuilder:
         # Existing BOM PROJECTION as well as LEAF NODE DETECTION
         if not child_items:
             if parent_node.node_type == "SUB_ASSEMBLY" and parent_node.is_preexisting_bom and parent_node.bom_no:
-                existing_bom_tree = ExistingBOMTreeBuilder(parent_node.bom_no).create()
+                existing_bom_tree = ExistingBOMTreeBuilder(
+                    parent_node.bom_no).create()
                 # As this tree is being created from existing BOM, mark all nodes as projected
                 # Ideally these nodes are not coming from multilevel bom creator, but they are
                 # projected from the existing bom node of the multilevel bom creator.
@@ -99,6 +108,49 @@ class BOMCreatorTreeBuilder:
                 item, self.tree)
             parent_node.add_child(child_node)
             self._add_children_recursively(child_node)
+
+
+class OperationTreeBuilder:
+    def __init__(self, operation_name: str):
+        self.operation_name = operation_name
+        self.tree = None
+
+    def create(self) -> BOMTree:
+        if self.tree:
+            frappe.throw("Tree is already built.")
+        self.tree = BOMTree()
+        operation = frappe.get_doc("Operation", self.operation_name)
+        if not operation:
+            frappe.throw(f"Operation '{self.operation_name}' not found.")
+        op_node = BOMTreeOperationNode(
+            tree_ref=self.tree,
+            node_unique_id=frappe.generate_hash(),
+            node_type="OPERATION",
+            sequence=1,
+            operation=operation.name,
+            internal_name=operation.name,
+            display_name=operation.name,
+        )
+        
+        self.tree.set_root(op_node)
+        self._traverse_operations(self.operation_name, op_node)
+        return self.tree
+
+    def _traverse_operations(self, operation_name, parent_node: BOMTreeNode):
+        operation = frappe.get_doc("Operation", operation_name)
+        for sub_operation in operation.sub_operations or []:
+            op_node = BOMTreeSubOperationNode(
+                tree_ref=self.tree,
+                node_unique_id=frappe.generate_hash(),
+                node_type="SUB_OPERATION",
+                sequence=sub_operation.idx,
+                operation=sub_operation.operation,
+                internal_name=sub_operation.operation,
+                display_name=f"{sub_operation.idx}: {sub_operation.operation}",
+                time_in_mins=sub_operation.time_in_mins,
+            )
+            parent_node.add_child(op_node)
+            self._traverse_operations(sub_operation.operation, op_node)
 
 class ExistingBOMTreeBuilder:
     def __init__(self, bom_name: str):
