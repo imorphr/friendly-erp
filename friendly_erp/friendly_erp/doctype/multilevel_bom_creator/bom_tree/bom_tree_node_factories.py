@@ -43,7 +43,7 @@ class BOMCreatorTreeNodeFactory:
             node_type="ITEM",
             item_code=item.item_code,
             internal_name=item.item_code,
-            display_name=item.item_code,    # TODO: should we use item_name here?
+            display_name=f"{item.sequence}: {item.item_code}",
             quantity=item.quantity,
             uom=item.uom,
             do_not_explode=item.do_not_explode
@@ -51,13 +51,14 @@ class BOMCreatorTreeNodeFactory:
 
     @staticmethod
     def _create_sub_assembly_node(item: MultilevelBOMCreatorItemNode) -> BOMTreeSubAssemblyNode:
+        display_name = f"{item.sequence}: {item.item_code} [{item.bom_no if item.bom_no else 'New BOM'}]"
         return BOMTreeSubAssemblyNode(
             node_type="SUB_ASSEMBLY",
             item_code=item.item_code,
             bom_no=item.bom_no,
             is_preexisting_bom=item.is_preexisting_bom,
             internal_name=item.item_code,
-            display_name=item.item_code,
+            display_name=display_name,
             quantity=item.quantity,
             uom=item.uom,
             do_not_explode=item.do_not_explode
@@ -81,6 +82,7 @@ class BOMCreatorTreeNodeFactory:
 class ExistingBOMTreeNodeFactory:
     @staticmethod
     def create_from_bom(bom, sequence: int, tree_ref) -> BOMTreeSubAssemblyNode:
+        display_name = f"{sequence}: {bom.item} [{bom.name}]"
         return BOMTreeSubAssemblyNode(
             node_type="SUB_ASSEMBLY",
             tree_ref=tree_ref,
@@ -90,13 +92,14 @@ class ExistingBOMTreeNodeFactory:
             bom_no=bom.name,
             is_preexisting_bom=True,
             internal_name=bom.item,
-            display_name=bom.item,
+            display_name=display_name,
             quantity=bom.quantity,
             uom=bom.uom,
         )
 
     @staticmethod
     def create_from_item(bom_item, sequence: int, tree_ref) -> BOMTreeItemNode:
+        display_name = f"{sequence}: {bom_item.item_code}"
         return BOMTreeItemNode(
             node_type="ITEM",
             tree_ref=tree_ref,
@@ -104,7 +107,7 @@ class ExistingBOMTreeNodeFactory:
             sequence=sequence,
             item_code=bom_item.item_code,
             internal_name=bom_item.item_code,
-            display_name=bom_item.item_code,
+            display_name=display_name,
             quantity=bom_item.qty,
             uom=bom_item.uom,
         )
