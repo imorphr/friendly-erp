@@ -4,16 +4,6 @@
 frappe.ui.form.on("Multilevel BOM Creator", {
     refresh(frm) {
         setup_bom_creator(frm);
-
-        if (!frm.is_new()) {
-            frm.add_custom_button(
-                __("Create BOMs"),
-                () => {
-                    create_boms(frm);
-                },
-                ""
-            );
-        }
     },
 });
 
@@ -50,22 +40,6 @@ function fetch_bom_tree_data(frm, tree_helper) {
         callback: function (r) {
             if (!r.exc && r.message) {
                 tree_helper.render_tree(r.message);
-            }
-        }
-    });
-}
-
-function create_boms(frm) {
-    frappe.call({
-        method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.create_boms",
-        args: {
-            multilevel_bom_creator_name: frm.doc.name
-        },
-        freeze: true,
-        freeze_message: __("Creating BOMs..."),
-        callback: function (r) {
-            if (!r.exc && r.message) {
-                frm.reload_doc();
             }
         }
     });
