@@ -1,8 +1,6 @@
 {
  "actions": [],
  "allow_import": 1,
- "allow_rename": 1,
- "autoname": "prompt",
  "creation": "2025-12-23 06:22:28.493819",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -20,7 +18,8 @@
   "items_tab",
   "item_nodes",
   "operation_nodes_tab",
-  "operation_nodes"
+  "operation_nodes",
+  "amended_from"
  ],
  "fields": [
   {
@@ -102,17 +101,27 @@
    "fieldtype": "Table",
    "label": "Operation Nodes",
    "options": "Multilevel BOM Creator Operation Node"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Multilevel BOM Creator",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2025-12-31 07:54:51.382522",
+ "modified": "2026-01-06 12:23:37.831835",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",
- "naming_rule": "Set by user",
  "owner": "Administrator",
  "permissions": [
   {

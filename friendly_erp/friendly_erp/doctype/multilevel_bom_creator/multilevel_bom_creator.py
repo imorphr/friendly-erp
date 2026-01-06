@@ -1,10 +1,12 @@
 # Copyright (c) 2025, iMORPHr Ltd. and contributors
 # For license information, please see license.txt
 
+import re
 import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from frappe.utils import cint
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
     BOMTree,
     BOMTreeSubAssemblyNode
@@ -29,6 +31,7 @@ class MultilevelBOMCreator(Document):
         from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
         from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
+        amended_from: DF.Link | None
         company: DF.Link
         description: DF.LongText | None
         item_code: DF.Link
@@ -36,6 +39,71 @@ class MultilevelBOMCreator(Document):
         operation_nodes: DF.Table[MultilevelBOMCreatorOperationNode]
         qty: DF.Float
     # end: auto-generated types
+
+    def autoname(self):
+        # ignore amended documents while calculating current index
+        prefix = "MLBOMC"
+        search_key = f"MLBOMC-{self.item_code}%"
+        existing_creators = frappe.get_all(
+            "Multilevel BOM Creator", filters={"name": search_key, "amended_from": ["is", "not set"]}, pluck="name"
+        )
+
+        index = self.get_index_for_bom(existing_creators)
+
+        
+        suffix = "%.3i" % index  # convert index to string (1 -> "001")
+        creator_name = f"{prefix}-{self.item_code}-{suffix}"
+
+        if len(creator_name) <= 140:
+            name = creator_name
+        else:
+            # since max characters for name is 140, remove enough characters from the
+            # item name to fit the prefix, suffix and the separators
+            truncated_length = 140 - (len(prefix) + len(suffix) + 2)
+            truncated_item_name = self.item_code[:truncated_length]
+            # if a partial word is found after truncate, remove the extra characters
+            truncated_item_name = truncated_item_name.rsplit(" ", 1)[0]
+            name = f"{prefix}-{truncated_item_name}-{suffix}"
+
+        if frappe.db.exists("Multilevel BOM Creator", name):
+            existing_creators = frappe.get_all(
+                "Multilevel BOM Creator", filters={"name": ("like", search_key), "amended_from": ["is", "not set"]}, pluck="name"
+            )
+
+            index = self.get_index_for_bom(existing_creators)
+            suffix = "%.3i" % index
+            name = f"{prefix}-{self.item_code}-{suffix}"
+
+        self.name = name
+
+    def get_index_for_bom(self, existing_creators):
+        index = 1
+        if existing_creators:
+            index = self.get_next_version_index(existing_creators)
+
+        return index
+
+    @staticmethod
+    def get_next_version_index(existing_creators: list[str]) -> int:
+        # split by "/" and "-"
+        delimiters = ["/", "-"]
+        pattern = "|".join(map(re.escape, delimiters))
+        creator_parts = [re.split(pattern, creator_name)
+                       for creator_name in existing_creators]
+
+        # filter out BOMs that do not follow the following formats: BOM/ITEM/001, BOM-ITEM-001
+        valid_creator_parts = list(
+            filter(lambda x: len(x) > 1 and x[-1], creator_parts))
+
+        # extract the current index from the BOM parts
+        if valid_creator_parts:
+            # handle cancelled and submitted documents
+            indexes = [cint(part[-1]) for part in valid_creator_parts]
+            index = max(indexes) + 1
+        else:
+            index = 1
+
+        return index
 
     def validate(self) -> None:
         if not self.item_code:
@@ -235,13 +303,16 @@ class MultilevelBOMCreator(Document):
                     )
                 )
             if child.node_type == "ITEM":
-                item = BOMTreeNodeToCreatorItemConverter.convert_item_node(child)
+                item = BOMTreeNodeToCreatorItemConverter.convert_item_node(
+                    child)
                 self.append("item_nodes", item)
             elif child.node_type == "SUB_ASSEMBLY":
-                sub_assembly = BOMTreeNodeToCreatorItemConverter.convert_sub_assembly_node(child)
+                sub_assembly = BOMTreeNodeToCreatorItemConverter.convert_sub_assembly_node(
+                    child)
                 self.append("item_nodes", sub_assembly)
             elif child.node_type == "OPERATION":
-                operation = BOMTreeNodeToCreatorItemConverter.convert_operation_node(child)
+                operation = BOMTreeNodeToCreatorItemConverter.convert_operation_node(
+                    child)
                 self.append("operation_nodes", operation)
 
         # change parent item as now it has actual children
@@ -337,7 +408,7 @@ class MultilevelBOMCreator(Document):
                 "docstatus": 1
             }
         )
-    
+
     def ensure_draft_status(self):
         if self.docstatus != 0:
             frappe.throw("Can not change submitted document.")
@@ -396,6 +467,7 @@ def duplicate_bom_structure(
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
 
+
 @frappe.whitelist()
 def delete_item_or_operation(multilevel_bom_creator_name: str, node_unique_id: str) -> None:
     multilevel_bom_creator = frappe.get_doc(
@@ -404,6 +476,7 @@ def delete_item_or_operation(multilevel_bom_creator_name: str, node_unique_id: s
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
+
 
 @frappe.whitelist()
 def create_boms(multilevel_bom_creator_name: str) -> dict[str, str]:

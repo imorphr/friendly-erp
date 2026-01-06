@@ -447,11 +447,25 @@ class NewFormDialogFactory {
         const dialog = new frappe.ui.Dialog({
             title: __("Multilevel BOM Creator"),
             fields: [
+                // {
+                //     label: __("Name"),
+                //     fieldtype: "Data",
+                //     fieldname: "name",
+                //     reqd: 1,
+                // },
                 {
-                    label: __("Name"),
-                    fieldtype: "Data",
-                    fieldname: "name",
+                    label: __("Item Code (Final Product)"),
+                    fieldtype: "Link",
+                    fieldname: "item_code",
+                    options: "Item",
                     reqd: 1,
+                },
+                {
+                    label: __("Quantity"),
+                    fieldtype: "Float",
+                    fieldname: "qty",
+                    reqd: 1,
+                    default: 1.0,
                 },
                 { fieldtype: "Column Break" },
                 {
@@ -461,22 +475,6 @@ class NewFormDialogFactory {
                     options: "Company",
                     reqd: 1,
                     default: frappe.defaults.get_user_default("Company"),
-                },
-                { fieldtype: "Section Break" },
-                {
-                    label: __("Item Code (Final Product)"),
-                    fieldtype: "Link",
-                    fieldname: "item_code",
-                    options: "Item",
-                    reqd: 1,
-                },
-                { fieldtype: "Column Break" },
-                {
-                    label: __("Quantity"),
-                    fieldtype: "Float",
-                    fieldname: "qty",
-                    reqd: 1,
-                    default: 1.0,
                 },
                 // { fieldtype: "Section Break" },
                 // {
