@@ -121,6 +121,31 @@ class MultilevelBOMCreator(Document):
             frappe.throw("No child items or operations found.")
         self.create_boms()
 
+    def assert_unique_node_id(self, unique_id: str) -> None:
+        """
+        Ensure the given unique_id is not already used in item or operation nodes.
+        """
+
+        if not unique_id:
+            frappe.throw("Unique ID cannot be empty.")
+
+        # Check item nodes
+        for node in self.item_nodes:
+            if node.node_unique_id == unique_id:
+                frappe.throw(
+                    f"Duplicate node unique_id detected: '{unique_id}' "
+                    f"(already used in Item nodes)"
+                )
+
+        # Check operation nodes
+        for node in self.operation_nodes:
+            if node.node_unique_id == unique_id:
+                frappe.throw(
+                    f"Duplicate node unique_id detected: '{unique_id}' "
+                    f"(already used in Operation nodes)"
+                )
+
+
     def add_root_item(self) -> None:
         """Add the root item to the BOM creator document."""
         self.ensure_draft_status()
@@ -129,7 +154,9 @@ class MultilevelBOMCreator(Document):
 
         item: MultilevelBOMCreatorItemNode = frappe.new_doc(
             "Multilevel BOM Creator Item Node")
-        item.node_unique_id = frappe.generate_hash()
+        unique_id = frappe.generate_hash(length=10)  # Here use shorter unique id as it is going to be stored in db
+        self.assert_unique_node_id(unique_id)
+        item.node_unique_id = unique_id
         item.parent_node_unique_id = None
         item.node_type = "SUB_ASSEMBLY"
         item.item_code = self.item_code
@@ -169,7 +196,9 @@ class MultilevelBOMCreator(Document):
 
         item: MultilevelBOMCreatorItemNode = frappe.new_doc(
             "Multilevel BOM Creator Item Node")
-        item.node_unique_id = frappe.generate_hash()
+        unique_id = frappe.generate_hash(length=10)  # Here use shorter unique id as it is going to be stored in db
+        self.assert_unique_node_id(unique_id)
+        item.node_unique_id = unique_id
         item.parent_node_unique_id = parent_node_unique_id
         item.node_type = "ITEM"
         item.item_code = item_code
@@ -217,7 +246,9 @@ class MultilevelBOMCreator(Document):
 
         item: MultilevelBOMCreatorItemNode = frappe.new_doc(
             "Multilevel BOM Creator Item Node")
-        item.node_unique_id = frappe.generate_hash()
+        unique_id = frappe.generate_hash(length=10)  # Here use shorter unique id as it is going to be stored in db
+        self.assert_unique_node_id(unique_id)
+        item.node_unique_id = unique_id
         item.parent_node_unique_id = parent_node_unique_id
         item.node_type = "SUB_ASSEMBLY"
         item.item_code = bom.item
@@ -260,7 +291,9 @@ class MultilevelBOMCreator(Document):
 
         operation: MultilevelBOMCreatorOperationNode = frappe.new_doc(
             "Multilevel BOM Creator Operation Node")
-        operation.node_unique_id = frappe.generate_hash()
+        unique_id = frappe.generate_hash(length=10)  # Here use shorter unique id as it is going to be stored in db
+        self.assert_unique_node_id(unique_id)
+        operation.node_unique_id = unique_id
         operation.parent_node_unique_id = parent_node_unique_id
         operation.node_type = "OPERATION"
         operation.operation = operation_name
@@ -311,14 +344,17 @@ class MultilevelBOMCreator(Document):
             if child.node_type == "ITEM":
                 item = BOMTreeNodeToCreatorItemConverter.convert_item_node(
                     child)
+                self.assert_unique_node_id(item.node_unique_id)
                 self.append("item_nodes", item)
             elif child.node_type == "SUB_ASSEMBLY":
                 sub_assembly = BOMTreeNodeToCreatorItemConverter.convert_sub_assembly_node(
                     child)
+                self.assert_unique_node_id(sub_assembly.node_unique_id)
                 self.append("item_nodes", sub_assembly)
             elif child.node_type == "OPERATION":
                 operation = BOMTreeNodeToCreatorItemConverter.convert_operation_node(
                     child)
+                self.assert_unique_node_id(operation.node_unique_id)
                 self.append("operation_nodes", operation)
 
         # change parent item as now it has actual children
