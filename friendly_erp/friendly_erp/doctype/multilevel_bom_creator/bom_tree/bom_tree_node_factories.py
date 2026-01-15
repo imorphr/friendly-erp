@@ -86,7 +86,7 @@ class ExistingBOMTreeNodeFactory:
         return BOMTreeSubAssemblyNode(
             node_type="SUB_ASSEMBLY",
             tree_ref=tree_ref,
-            node_unique_id=frappe.generate_hash(),
+            node_unique_id=frappe.generate_hash(),  # Using a GUID longer than 10 characters to reduce the risk of ID collisions
             sequence=sequence,
             item_code=bom.item,
             bom_no=bom.name,
@@ -103,7 +103,7 @@ class ExistingBOMTreeNodeFactory:
         return BOMTreeItemNode(
             node_type="ITEM",
             tree_ref=tree_ref,
-            node_unique_id=frappe.generate_hash(),
+            node_unique_id=frappe.generate_hash(),  # Using a GUID longer than 10 characters to reduce the risk of ID collisions
             sequence=sequence,
             item_code=bom_item.item_code,
             internal_name=bom_item.item_code,
@@ -119,7 +119,7 @@ class ExistingBOMTreeNodeFactory:
         return BOMTreeOperationNode(
             node_type="OPERATION",
             tree_ref=tree_ref,
-            node_unique_id=frappe.generate_hash(),
+            node_unique_id=frappe.generate_hash(),  # Using a GUID longer than 10 characters to reduce the risk of ID collisions
             sequence=sequence,
             operation=bom_operation.operation,
             internal_name=bom_operation.operation,

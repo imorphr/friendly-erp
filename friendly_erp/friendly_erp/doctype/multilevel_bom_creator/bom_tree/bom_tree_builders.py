@@ -124,7 +124,7 @@ class OperationTreeBuilder:
             frappe.throw(f"Operation '{self.operation_name}' not found.")
         op_node = BOMTreeOperationNode(
             tree_ref=self.tree,
-            node_unique_id=frappe.generate_hash(),
+            node_unique_id=frappe.generate_hash(), # Using a GUID longer than 10 characters to reduce the risk of ID collisions
             node_type="OPERATION",
             sequence=1,
             operation=operation.name,
@@ -141,7 +141,7 @@ class OperationTreeBuilder:
         for sub_operation in operation.sub_operations or []:
             op_node = BOMTreeSubOperationNode(
                 tree_ref=self.tree,
-                node_unique_id=frappe.generate_hash(),
+                node_unique_id=frappe.generate_hash(),  # Using a GUID longer than 10 characters to reduce the risk of ID collisions
                 node_type="SUB_OPERATION",
                 sequence=sub_operation.idx,
                 operation=sub_operation.operation,
