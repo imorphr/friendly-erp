@@ -15,10 +15,22 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
-# TODO: Add cycle detection for all trees
-
-
 class BOMCreatorTreeBuilder:
+    """
+    Builds a BOMTree from a Multilevel BOM Creator document.
+
+    This builder traverses the flat list of item and operation nodes stored in the
+    Multilevel BOM Creator document and reconstructs the hierarchical tree structure.
+    It handles:
+    - Root node creation.
+    - Recursive addition of child items and operations.
+    - Expansion of existing BOMs (sub-assemblies) referenced in the creator.
+    - Expansion of operations into sub-operations.
+
+    Note: There is no cycle detection in this tree while adding children. Because
+    cycle checks are done upfront while adding item to multi level bom doctype's child items.
+    So here it is safe to assume that there is no possibility of cycle.
+    """
     def __init__(self, bom_creator_doc):
         if not bom_creator_doc:
             frappe.throw("BOM Creator document is required to build BOM Tree.")
@@ -150,7 +162,11 @@ class OperationTreeBuilder:
                 time_in_mins=sub_operation.time_in_mins,
             )
             parent_node.add_child(op_node)
-            self._traverse_operations(sub_operation.operation, op_node)
+            # To prevent cycles, only expand the node if this operation does not exist in the ancestor path.
+            if not self.tree.operation_node_exists_in_upward_path(parent_node.node_unique_id, sub_operation.operation):
+                self._traverse_operations(sub_operation.operation, op_node)
+            else:
+                op_node.error_messages["CYCLIC_NODE"] = "Cyclic operation detected"
 
 class ExistingBOMTreeBuilder:
     def __init__(self, bom_name: str):
@@ -175,7 +191,12 @@ class ExistingBOMTreeBuilder:
             self.tree.set_root(node)
         else:
             parent_node.add_child(node)
-        self._add_children_recursively(bom, node)
+
+        # To prevent cycles, only expand the node if this item does not exist in the ancestor path.
+        if parent_node and not self.tree.item_node_exists_in_upward_path(parent_node.node_unique_id, bom.item):
+            self._add_children_recursively(bom, node)
+        else:
+            node.error_messages["CYCLIC_NODE"] = "Cyclic item detected"
 
     def _add_children_recursively(self, bom, parent_node: BOMTreeNode):
         self._add_child_operation_nodes_recursively(bom, parent_node)
@@ -187,6 +208,9 @@ class ExistingBOMTreeBuilder:
             child_node = ExistingBOMTreeNodeFactory.create_from_operation(
                 bom_operation, bom_operation.idx, self.tree)
             parent_node.add_child(child_node)
+            sub_operation_tree = OperationTreeBuilder(bom_operation.operation).create()
+            sub_operation_tree.mark_all_nodes_as_projected()
+            self.tree.merge_another_tree(child_node, sub_operation_tree, True)
 
     def _add_child_item_nodes_recursively(self, bom, parent_node: BOMTreeNode):
         items = bom.items or []

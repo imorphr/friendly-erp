@@ -17,9 +17,6 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.tree_to_b
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
-# TODO: Cycle detection pending in BOM Tree
-
-
 class MultilevelBOMCreator(Document):
     # begin: auto-generated types
     # This code is auto-generated. Do not modify anything in this block.
@@ -165,10 +162,8 @@ class MultilevelBOMCreator(Document):
         item.sequence = 1
         self.append("item_nodes", item)
 
-    # TODO: Cycle detection pending
     def add_item(self, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
-        # TODO: Cycle detection pending
         self.ensure_draft_status()
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
@@ -180,6 +175,11 @@ class MultilevelBOMCreator(Document):
             frappe.throw(
                 f"Cannot add item under node '{parent_node.display_name}'. "
                 f"Adding child items is not allowed for this node."
+            )
+
+        if tree.item_node_exists_in_upward_path(parent_node_unique_id, item_code):
+            frappe.throw(
+                f"Item '{item_code}' already exists as a direct or indirect parent. Item can not be child of itself."
             )
 
         parent_item = next((
@@ -237,6 +237,11 @@ class MultilevelBOMCreator(Document):
             frappe.throw(_("Selected BOM is not active"))
         if bom.company != self.company:
             frappe.throw(_("Selected BOM belongs to a different company"))
+
+        if tree.item_node_exists_in_upward_path(parent_node_unique_id, bom.item):
+            frappe.throw(
+                f"Item '{bom.item}' already exists as a direct or indirect parent. Item can not be child of itself."
+            )
 
         # As child is being added, parent must be a Sub-Assembly
         if parent_item.node_type != "SUB_ASSEMBLY":
