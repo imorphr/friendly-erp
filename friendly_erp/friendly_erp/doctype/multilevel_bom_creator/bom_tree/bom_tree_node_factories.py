@@ -44,7 +44,8 @@ class BOMCreatorTreeNodeFactory:
             item_code=item.item_code,
             internal_name=item.item_code,
             display_name=f"{item.sequence}: {item.item_code}",
-            quantity=item.quantity,
+            qty_per_parent_unit=item.qty_per_parent_unit,
+            total_required_qty=None, # It should be calculated after tree construction
             uom=item.uom,
             do_not_explode=item.do_not_explode
         )
@@ -59,7 +60,8 @@ class BOMCreatorTreeNodeFactory:
             is_preexisting_bom=item.is_preexisting_bom,
             internal_name=item.item_code,
             display_name=display_name,
-            quantity=item.quantity,
+            qty_per_parent_unit=item.qty_per_parent_unit,
+            total_required_qty=None, # It should be calculated after tree construction
             uom=item.uom,
             do_not_explode=item.do_not_explode
         )
@@ -93,7 +95,8 @@ class ExistingBOMTreeNodeFactory:
             is_preexisting_bom=True,
             internal_name=bom.item,
             display_name=display_name,
-            quantity=bom.quantity,
+            qty_per_parent_unit=bom.quantity,
+            total_required_qty=None, # It should be calculated after tree construction
             uom=bom.uom,
         )
 
@@ -108,7 +111,8 @@ class ExistingBOMTreeNodeFactory:
             item_code=bom_item.item_code,
             internal_name=bom_item.item_code,
             display_name=display_name,
-            quantity=bom_item.qty,
+            qty_per_parent_unit=bom_item.qty,
+            total_required_qty=None, # It should be calculated after tree construction
             uom=bom_item.uom,
         )
 
@@ -146,14 +150,14 @@ class BOMTreeNodeToCreatorItemConverter:
         if node.node_type not in ("ITEM", "SUB_ASSEMBLY"):
             frappe.throw("Invalid node type for item conversion")
 
-        doc = frappe.new_doc("Multilevel BOM Creator Item Node")
+        doc: MultilevelBOMCreatorItemNode = frappe.new_doc("Multilevel BOM Creator Item Node")
 
         doc.node_type = node.node_type
         doc.node_unique_id = node.node_unique_id
         doc.parent_node_unique_id = node.parent_node_ref.node_unique_id
         doc.sequence = node.sequence
         doc.item_code = node.item_code
-        doc.quantity = node.quantity
+        doc.qty_per_parent_unit = node.qty_per_parent_unit
         doc.uom = node.uom
         doc.do_not_explode = node.do_not_explode
         return doc

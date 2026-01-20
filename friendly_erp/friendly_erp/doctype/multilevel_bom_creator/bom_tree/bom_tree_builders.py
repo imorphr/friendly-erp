@@ -12,6 +12,7 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_
     BOMCreatorTreeNodeFactory,
     ExistingBOMTreeNodeFactory
 )
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_qty_calculator import BOMTreeQtyCalculator
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
@@ -57,6 +58,7 @@ class BOMCreatorTreeBuilder:
             frappe.throw("Tree is already built.")
         self.tree = BOMTree()
         self._build_tree()
+        BOMTreeQtyCalculator(self.tree).calculate()
         return self.tree
 
     def _build_tree(self):
@@ -193,7 +195,7 @@ class ExistingBOMTreeBuilder:
             parent_node.add_child(node)
 
         # To prevent cycles, only expand the node if this item does not exist in the ancestor path.
-        if parent_node and not self.tree.item_node_exists_in_upward_path(parent_node.node_unique_id, bom.item):
+        if not parent_node or not self.tree.item_node_exists_in_upward_path(parent_node.node_unique_id, bom.item):
             self._add_children_recursively(bom, node)
         else:
             node.error_messages["CYCLIC_NODE"] = "Cyclic item detected"

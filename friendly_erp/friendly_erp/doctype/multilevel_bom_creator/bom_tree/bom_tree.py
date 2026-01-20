@@ -32,8 +32,8 @@ class BOMTreeNode:
     # But projected nodes cannot be modified or deleted. Hence this flag helps to identify such nodes.
     is_projected: bool = False
 
-    error_messages: Dict[NodeErrorCode, str] = {}
-    warning_messages: Dict[NodeErrorCode, str] = {}
+    error_messages: Dict[NodeErrorCode, str] = field(default_factory=dict)
+    warning_messages: Dict[NodeErrorCode, str] = field(default_factory=dict)
 
     # Action flags
     can_add_child_item: bool = False
@@ -82,7 +82,10 @@ class BOMTreeNode:
 class BOMTreeItemNode(BOMTreeNode):
     item_code: str = None
     do_not_explode: bool = False
-    quantity: float = 0.0
+    # Quantity of this item required to produce 1 unit (UOM) of the parent item.
+    qty_per_parent_unit: float = 0.0
+    # Total quantity of this item required to produce 1 unit (UOM) of the root item.
+    total_required_qty: float = 0.0
     uom: str = None
 
 
@@ -108,6 +111,7 @@ class BOMTreeOperationNode(BOMTreeNode):
     time_in_mins: float = 0.0
     workstation_type: str = None
     workstation: str = None
+
 
 @dataclass
 class BOMTreeSubOperationNode(BOMTreeOperationNode):
@@ -195,7 +199,7 @@ class BOMTree:
     def get_leaf_nodes(self) -> list[BOMTreeNode]:
         self.ensure_root_exists()
         return [node for node in self.node_map.values() if not node.children]
-    
+
     def get_descendant_node_ids(self, node_unique_id: str) -> set[str]:
         """
         Return a set of node_unique_id values for the given node and
@@ -218,7 +222,7 @@ class BOMTree:
 
         _collect(start_node)
         return descendant_ids
-    
+
     def item_node_exists_in_upward_path(self, start_node_unique_id: str, item_code: str) -> bool:
         """
         Check whether the given item_code exists on the start node
@@ -238,11 +242,11 @@ class BOMTree:
             if current.node_type == "ITEM" or current.node_type == "SUB_ASSEMBLY":
                 if current.item_code == item_code:
                     return True
-                
+
             current = current.parent_node_ref
 
         return False
-    
+
     def operation_node_exists_in_upward_path(self, start_node_unique_id: str, operation: str) -> bool:
         """
         Check whether the given operation exists on the start node
@@ -262,7 +266,7 @@ class BOMTree:
             if current.node_type == "OPERATION" or current.node_type == "SUB_OPERATION":
                 if current.operation == operation:
                     return True
-                
+
             current = current.parent_node_ref
 
         return False
@@ -294,7 +298,7 @@ class BOMTree:
             frappe.throw("Other tree was not given for merge operation.")
         if not parent_node:
             frappe.throw("Parent node not specified.")
-            
+
         # Validate parent node belongs to this tree
         if (
             parent_node.tree_ref is not self
@@ -322,7 +326,8 @@ class BOMTree:
 
         # Step 4: Attach nodes to parent_node
         for node in nodes_to_merge:
-            node.parent_node_ref = None # Reset parent_node_ref as it is going to be child of new parent
+            # Reset parent_node_ref as it is going to be child of new parent
+            node.parent_node_ref = None
             parent_node.add_child(node)
             # Delete added node from another tree's node_map as node is now merged
             del another_tree.node_map[node.node_unique_id]
@@ -332,7 +337,7 @@ class BOMTree:
         for node in nodes_to_merge:
             self._update_subtree_depth_and_indent(node, base_depth)
 
-        # Step 6: Merge node_map entries for all (upto n level) merged nodes 
+        # Step 6: Merge node_map entries for all (upto n level) merged nodes
         for unique_id, node in another_tree.node_map.items():
             # Skip root if excluded
             if exclude_root and node is another_tree.root:
@@ -378,7 +383,7 @@ class BOMTreeNodeActionFlagInitializer:
             node.can_delete = False  # Root node cannot be deleted
             node.can_duplicate_bom = False
             return
-        
+
         # If current node is projected node then do not allow any option on it
         if node.is_projected:
             node.can_add_child_item = False

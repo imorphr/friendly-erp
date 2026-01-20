@@ -108,8 +108,8 @@ function add_item(frm, parent, values) {
             multilevel_bom_creator_name: frm.doc.name,
             parent_node_unique_id: parent.node_unique_id,
             item_code: values.item_code,
-            quantity: values.qty,
-            uom: "" // TODO: fetch UOM from item master
+            qty_per_parent_unit: values.qty_per_parent_unit,
+            uom: values.uom
         },
         freeze: true,
         freeze_message: __("Adding Item..."),
@@ -128,8 +128,8 @@ function add_existing_sub_assembly(frm, parent, values) {
             multilevel_bom_creator_name: frm.doc.name,
             parent_node_unique_id: parent.node_unique_id,
             bom_name: values.bom_name,
-            quantity: values.qty,
-            uom: "" // TODO: fetch UOM from item master
+            qty_per_parent_unit: values.qty_per_parent_unit,
+            uom: values.uom
         },
         freeze: true,
         freeze_message: __("Adding Sub-assembly..."),
@@ -205,14 +205,19 @@ class BOMTreeHelper {
                 }
             },
             {
-                name: "Qty",
-                id: "quantity",
-                width: 80
-            },
-            {
                 name: "UOM",
                 id: "uom",
                 width: 80
+            },
+            {
+                name: "Unit Qty",
+                id: "qty_per_parent_unit",
+                width: 80
+            },
+            {
+                name: "Req. Qty",
+                id: "total_required_qty",
+                width: 90
             },
             {
                 name: "",
@@ -421,25 +426,35 @@ class NewFormDialogFactory {
         const dialog = new frappe.ui.Dialog({
             title: __("Multilevel BOM Creator"),
             fields: [
-                // {
-                //     label: __("Name"),
-                //     fieldtype: "Data",
-                //     fieldname: "name",
-                //     reqd: 1,
-                // },
                 {
                     label: __("Item Code (Final Product)"),
                     fieldtype: "Link",
                     fieldname: "item_code",
                     options: "Item",
                     reqd: 1,
+                    onchange: () => {
+                        const item_code = dialog.get_value("item_code");
+                        if (!item_code) {
+                            return;
+                        }
+
+                        frappe.db.get_value(
+                            "Item",
+                            item_code,
+                            "stock_uom"
+                        ).then((r) => {
+                            if (r && r.message && r.message.stock_uom) {
+                                dialog.set_value("uom", r.message.stock_uom);
+                            }
+                        });
+                    },
                 },
                 {
-                    label: __("Quantity"),
-                    fieldtype: "Float",
-                    fieldname: "qty",
+                    label: __("UOM"),
+                    fieldtype: "Link",
+                    fieldname: "uom",
+                    options: "UOM",
                     reqd: 1,
-                    default: 1.0,
                 },
                 { fieldtype: "Column Break" },
                 {
@@ -450,23 +465,13 @@ class NewFormDialogFactory {
                     reqd: 1,
                     default: frappe.defaults.get_user_default("Company"),
                 },
-                // { fieldtype: "Section Break" },
-                // {
-                //     label: __("Currency"),
-                //     fieldtype: "Link",
-                //     fieldname: "currency",
-                //     options: "Currency",
-                //     reqd: 1,
-                //     default: frappe.defaults.get_global_default("currency"),
-                // },
-                // { fieldtype: "Column Break" },
-                // {
-                //     label: __("Conversion Rate"),
-                //     fieldtype: "Float",
-                //     fieldname: "conversion_rate",
-                //     reqd: 1,
-                //     default: 1.0,
-                // },
+                {
+                    label: __("Quantity"),
+                    fieldtype: "Float",
+                    fieldname: "qty",
+                    reqd: 1,
+                    default: 1.0,
+                },
             ],
             primary_action_label: __("Create"),
             primary_action: (values) => {
@@ -510,11 +515,20 @@ class NewChildItemDialogFactory {
                 },
                 { fieldtype: "Section Break" },
                 {
-                    label: __("Quantity"),
+                    label: __("Unit Quantity"),
                     fieldtype: "Float",
-                    fieldname: "qty",
+                    fieldname: "qty_per_parent_unit",
                     reqd: 1,
                     default: 1.0,
+                    description: "Quantity of this item required to produce 1 unit (UOM) of the parent item."
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("UOM"),
+                    fieldtype: "Link",
+                    fieldname: "uom",
+                    options: "UOM",
+                    reqd: 1,
                 },
             ],
             primary_action_label: __("Create"),
@@ -550,6 +564,16 @@ class NewChildItemDialogFactory {
                 dialog.set_df_property("bom_name", "hidden", 0);
             } else {
                 dialog.set_df_property("bom_name", "hidden", 1);
+            }
+        });
+
+        frappe.db.get_value(
+            "Item",
+            item_code,
+            "stock_uom"
+        ).then((r) => {
+            if (r && r.message && r.message.stock_uom) {
+                dialog.set_value("uom", r.message.stock_uom);
             }
         });
     }
