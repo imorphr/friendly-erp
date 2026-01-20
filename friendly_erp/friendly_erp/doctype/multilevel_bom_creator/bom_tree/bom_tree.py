@@ -222,54 +222,6 @@ class BOMTree:
 
         _collect(start_node)
         return descendant_ids
-    
-    def item_node_exists_in_upward_path(self, start_node_unique_id: str, item_code: str) -> bool:
-        """
-        Check whether the given item_code exists on the start node
-        or any of its parent nodes (upward traversal).
-
-        Used to prevent cycles in the tree.
-        """
-        start_node = self.node_map.get(start_node_unique_id)
-
-        if not start_node:
-            frappe.throw(
-                f"Node with unique_id '{start_node_unique_id}' not found in BOM tree."
-            )
-
-        current = start_node
-        while current:
-            if current.node_type == "ITEM" or current.node_type == "SUB_ASSEMBLY":
-                if current.item_code == item_code:
-                    return True
-                
-            current = current.parent_node_ref
-
-        return False
-    
-    def operation_node_exists_in_upward_path(self, start_node_unique_id: str, operation: str) -> bool:
-        """
-        Check whether the given operation exists on the start node
-        or any of its parent nodes (upward traversal).
-
-        Used to prevent cycles in the tree.
-        """
-        start_node = self.node_map.get(start_node_unique_id)
-
-        if not start_node:
-            frappe.throw(
-                f"Node with unique_id '{start_node_unique_id}' not found in BOM tree."
-            )
-
-        current = start_node
-        while current:
-            if current.node_type == "OPERATION" or current.node_type == "SUB_OPERATION":
-                if current.operation == operation:
-                    return True
-                
-            current = current.parent_node_ref
-
-        return False
 
     def item_node_exists_in_upward_path(self, start_node_unique_id: str, item_code: str) -> bool:
         """
