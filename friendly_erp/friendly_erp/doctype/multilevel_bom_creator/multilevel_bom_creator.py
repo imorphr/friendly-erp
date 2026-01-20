@@ -35,6 +35,7 @@ class MultilevelBOMCreator(Document):
         item_nodes: DF.Table[MultilevelBOMCreatorItemNode]
         operation_nodes: DF.Table[MultilevelBOMCreatorOperationNode]
         qty: DF.Float
+        uom: DF.Link | None
     # end: auto-generated types
 
     def autoname(self):
@@ -157,12 +158,12 @@ class MultilevelBOMCreator(Document):
         item.parent_node_unique_id = None
         item.node_type = "SUB_ASSEMBLY"
         item.item_code = self.item_code
-        item.quantity = self.qty or 1.0
-        item.uom = ""
+        item.qty_per_parent_unit = self.qty or 1.0
+        item.uom = self.uom
         item.sequence = 1
         self.append("item_nodes", item)
 
-    def add_item(self, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
+    def add_item(self, parent_node_unique_id: str, item_code: str, qty_per_parent_unit: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
         self.ensure_draft_status()
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
@@ -203,13 +204,13 @@ class MultilevelBOMCreator(Document):
         item.node_type = "ITEM"
         item.item_code = item_code
         item.do_not_explode = True if has_bom else False
-        item.quantity = quantity
+        item.qty_per_parent_unit = qty_per_parent_unit
         item.uom = uom
         item.sequence = self._get_child_item_node_sequence(
             parent_node_unique_id)
         self.append("item_nodes", item)
 
-    def add_existing_sub_assembly(self, parent_node_unique_id: str, bom_name: str, quantity: float, uom: str) -> None:
+    def add_existing_sub_assembly(self, parent_node_unique_id: str, bom_name: str, qty_per_parent_unit: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
         self.ensure_draft_status()
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
@@ -260,7 +261,7 @@ class MultilevelBOMCreator(Document):
         item.bom_no = bom_name
         item.is_preexisting_bom = True
         item.do_not_explode = False
-        item.quantity = quantity
+        item.qty_per_parent_unit = qty_per_parent_unit
         item.uom = uom
         item.sequence = self._get_child_item_node_sequence(
             parent_node_unique_id)
@@ -470,22 +471,22 @@ def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
 
 
 @frappe.whitelist()
-def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, quantity: float, uom: str) -> None:
+def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, qty_per_parent_unit: float, uom: str) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_item(
-        parent_node_unique_id, item_code, quantity, uom)
+        parent_node_unique_id, item_code, qty_per_parent_unit, uom)
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
 
 
 @frappe.whitelist()
-def add_existing_sub_assembly(multilevel_bom_creator_name: str, parent_node_unique_id: str, bom_name: str, quantity: float, uom: str) -> None:
+def add_existing_sub_assembly(multilevel_bom_creator_name: str, parent_node_unique_id: str, bom_name: str, qty_per_parent_unit: float, uom: str) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_existing_sub_assembly(
-        parent_node_unique_id, bom_name, quantity, uom)
+        parent_node_unique_id, bom_name, qty_per_parent_unit, uom)
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()

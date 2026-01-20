@@ -33,7 +33,7 @@ class MultilevelBOMCreatorItemNode(Document):
 		parentfield: DF.Data
 		parenttype: DF.Data
 		project: DF.Link | None
-		quantity: DF.Float
+		qty_per_parent_unit: DF.Float
 		rate: DF.Float
 		rm_cost_as_per: DF.Literal["Valuation Rate", "Last Purchase Rate", "Price List"]
 		sequence: DF.Int

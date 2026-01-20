@@ -11,6 +11,8 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree 
     BOMTreeSubAssemblyNode
 )
 
+from erpnext.stock.get_item_details import get_conversion_factor
+
 class TreeToBOMConverter:
     def __init__(self, bom_tree: BOMTree, company: str):
         self.tree = bom_tree
@@ -96,7 +98,7 @@ class TreeToBOMConverter:
         bom.company = self.company
         bom.item = node.item_code
         bom.bom_type = "Production"       #TODO: As of now hardcoding
-        bom.quantity = node.quantity
+        bom.quantity = 1                # BOM root qty will always be 1 unit
         bom.rm_cost_as_per = "Valuation Rate"   #TODO: As of now hardcoding
         bom.project = None              #TODO: As of now hardcoding
         bom.currency = "GBP"            #TODO: As of now hardcoding
@@ -105,22 +107,31 @@ class TreeToBOMConverter:
         return bom
 
     def _create_bom_item(self, child: BOMTreeItemNode):
-        item = frappe.new_doc("BOM Item")
-        item.item_code = child.item_code
-        item.qty = child.quantity
-        item.uom = child.uom
-        item.rate = 1                       # TODO: As of now hardcoding
-        item.stock_qty = child.quantity     # TODO: think
-        item.stock_uom = child.uom          # TODO: think
-        item.conversion_factor = 1          # TODO: As of now hardcoding
-        item.do_not_explode = child.do_not_explode
-        item.source_warehouse = None        # TODO: As of now hardcoding
-        item.allow_alternative_item = 0     # TODO: As of now hardcoding
+        stock_uom = frappe.get_value(
+            "Item",
+            child.item_code,
+            "stock_uom",
+        )
+        conversion_factor = get_conversion_factor(
+            child.item_code,
+            child.uom,
+        ).get("conversion_factor") or 1.0
+        bom_item = frappe.new_doc("BOM Item")
+        bom_item.item_code = child.item_code
+        bom_item.qty = child.qty_per_parent_unit
+        bom_item.uom = child.uom
+        bom_item.stock_uom = stock_uom
+        bom_item.conversion_factor = conversion_factor
+        bom_item.stock_qty = child.qty_per_parent_unit * conversion_factor
+        bom_item.rate = 1                       # TODO: As of now hardcoding
+        bom_item.do_not_explode = child.do_not_explode
+        bom_item.source_warehouse = None        # TODO: As of now hardcoding
+        bom_item.allow_alternative_item = 0     # TODO: As of now hardcoding
 
         if child.node_type == "SUB_ASSEMBLY":
-            item.bom_no = child.bom_no
+            bom_item.bom_no = child.bom_no
 
-        return item
+        return bom_item
 
     def _create_bom_operation(self, child: BOMTreeOperationNode):
         operation = frappe.new_doc("BOM Operation")
