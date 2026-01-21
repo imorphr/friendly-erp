@@ -46,20 +46,46 @@ function fetch_bom_tree_data(frm, tree_helper) {
 }
 
 //============ Tree item handlers ============
-function show_item_dialog(frm, parent) {
-    const dialog = new NewChildItemDialogFactory(frm, (values, frm) => {
-        const bom_name = values.bom_name;
-        if (bom_name !== null && bom_name !== undefined && bom_name.trim().length > 0) {
-            add_existing_sub_assembly(frm, parent, values);
-        } else {
+function show_add_item_dialog(frm, parent) {
+    const dialog = new NewChildItemDialogFactory(
+        frm,
+        (values, frm) => {
             add_item(frm, parent, values);
-        }
-        dialog.hide();
-    }).create();
+            dialog.hide();
+        },
+        "ITEM",
+        "ADD"
+    ).create();
     dialog.show();
 }
 
-function show_operation_dialog(frm, parent) {
+function show_add_new_sub_assembly_dialog(frm, parent) {
+    const dialog = new NewChildItemDialogFactory(
+        frm,
+        (values, frm) => {
+            add_new_sub_assembly(frm, parent, values);
+            dialog.hide();
+        },
+        "NEW_SUB_ASSEMBLY",
+        "ADD"
+    ).create();
+    dialog.show();
+}
+
+function show_add_existing_sub_assembly_dialog(frm, parent) {
+    const dialog = new NewChildItemDialogFactory(
+        frm,
+        (values, frm) => {
+            add_existing_sub_assembly(frm, parent, values);
+            dialog.hide();
+        },
+        "EXISTING_SUB_ASSEMBLY",
+        "ADD"
+    ).create();
+    dialog.show();
+}
+
+function show_add_operation_dialog(frm, parent) {
     const dialog = new NewChildOperationDialogFactory(frm, (values, frm) => {
         add_operation(frm, parent, values);
         dialog.hide();
@@ -108,11 +134,32 @@ function add_item(frm, parent, values) {
             multilevel_bom_creator_name: frm.doc.name,
             parent_node_unique_id: parent.node_unique_id,
             item_code: values.item_code,
-            qty_per_parent_unit: values.qty_per_parent_unit,
+            qty_per_parent_bom_run: values.qty_per_parent_bom_run,
             uom: values.uom
         },
         freeze: true,
         freeze_message: __("Adding Item..."),
+        callback: function (r) {
+            if (!r.exc) {
+                frm.reload_doc();
+            }
+        }
+    });
+}
+
+function add_new_sub_assembly(frm, parent, values) {
+    frappe.call({
+        method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.add_new_sub_assembly",
+        args: {
+            multilevel_bom_creator_name: frm.doc.name,
+            parent_node_unique_id: parent.node_unique_id,
+            item_code: values.item_code,
+            qty_per_parent_bom_run: values.qty_per_parent_bom_run,
+            own_bom_qty: values.own_bom_qty,
+            uom: values.uom
+        },
+        freeze: true,
+        freeze_message: __("Adding new Sub-assembly..."),
         callback: function (r) {
             if (!r.exc) {
                 frm.reload_doc();
@@ -132,7 +179,7 @@ function add_existing_sub_assembly(frm, parent, values) {
             uom: values.uom
         },
         freeze: true,
-        freeze_message: __("Adding Sub-assembly..."),
+        freeze_message: __("Adding existing Sub-assembly..."),
         callback: function (r) {
             if (!r.exc) {
                 frm.reload_doc();
@@ -210,9 +257,14 @@ class BOMTreeHelper {
                 width: 80
             },
             {
-                name: "Unit Qty",
-                id: "qty_per_parent_unit",
-                width: 80
+                name: "Batch Size",
+                id: "own_bom_qty",
+                width: 130
+            },
+            {
+                name: "Component Qty",
+                id: "qty_per_parent_bom_run",
+                width: 160
             },
             {
                 name: "Req. Qty",
@@ -390,14 +442,20 @@ class MenuProvider {
         const items = [];
         if (ctx.can_add_child_item) {
             items.push(
-                { label: "Add Item", action: show_item_dialog }
+                { label: "Add Item", action: show_add_item_dialog },
+                { label: "Add New Sub-Assembly", action: show_add_new_sub_assembly_dialog },
+                { label: "Add Existing Sub-Assembly", action: show_add_existing_sub_assembly_dialog }
             );
         }
 
         if (ctx.can_add_child_operation) {
             items.push(
-                { label: "Add Operation", action: show_operation_dialog },
+                { label: "Add Operation", action: show_add_operation_dialog }
             );
+        }
+
+        if (ctx.can_add_child_item || ctx.can_add_child_operation) {
+            items.push({ label: "Edit", action: show_add_item_dialog });
         }
 
         if (ctx.can_duplicate_bom) {
@@ -485,88 +543,82 @@ class NewFormDialogFactory {
 }
 
 class NewChildItemDialogFactory {
-    constructor(frm, action) {
+    constructor(frm, action, item_type, mode) {
         this.frm = frm;
         this.action = action;
+        this.item_type = item_type; // item_type can be 'ITEM', 'NEW_SUB_ASSEMBLY', or 'EXISTING_SUB_ASSEMBLY'
+        this.mode = mode; // mode can be 'ADD' or 'EDIT'
     }
 
     create() {
         const self = this;
+        const fields = [];
+        if (this.item_type === "ITEM" || this.item_type === "NEW_SUB_ASSEMBLY") {
+            fields.push({
+                label: __("Item Code"),
+                fieldtype: "Link",
+                fieldname: "item_code",
+                options: "Item",
+                reqd: 1,
+            });
+        } else if (this.item_type === "EXISTING_SUB_ASSEMBLY") {
+            fields.push({
+                label: __("BOM"),
+                fieldtype: "Link",
+                fieldname: "bom_name",
+                options: "BOM",
+                reqd: 1,
+            });
+        }
+        fields.push({ fieldtype: "Section Break" });
+        fields.push({
+            label: __("Component Qty"),
+            fieldtype: "Float",
+            fieldname: "qty_per_parent_bom_run",
+            reqd: 1,
+            default: 1.0,
+            description: "Quantity needed per ONE execution of parent BOM"
+        });
+        if (this.item_type === "NEW_SUB_ASSEMBLY") {
+            fields.push({
+                label: __("Batch Size"),
+                fieldtype: "Float",
+                fieldname: "own_bom_qty",
+                reqd: 1,
+                default: 1.0,
+                description: "Batch size of this sub-assembly's own BOM"
+            });
+        }
+        fields.push({ fieldtype: "Column Break" });
+        fields.push({
+            label: __("UOM"),
+            fieldtype: "Link",
+            fieldname: "uom",
+            options: "UOM",
+            reqd: 1,
+        });
+
         const dialog = new frappe.ui.Dialog({
             title: __("Add Item"),
-            fields: [
-                {
-                    label: __("Item Code"),
-                    fieldtype: "Link",
-                    fieldname: "item_code",
-                    options: "Item",
-                    reqd: 1,
-                },
-                { fieldtype: "Column Break" },
-                {
-                    label: __("BOM"),
-                    fieldtype: "Link",
-                    fieldname: "bom_name",
-                    options: "BOM",
-                    hidden: 1,
-                    description: __(
-                        "Select a BOM if you want to use an existing structure. Leave it blank to add the item and create a new structure."
-                    )
-                },
-                { fieldtype: "Section Break" },
-                {
-                    label: __("Unit Quantity"),
-                    fieldtype: "Float",
-                    fieldname: "qty_per_parent_unit",
-                    reqd: 1,
-                    default: 1.0,
-                    description: "Quantity of this item required to produce 1 unit (UOM) of the parent item."
-                },
-                { fieldtype: "Column Break" },
-                {
-                    label: __("UOM"),
-                    fieldtype: "Link",
-                    fieldname: "uom",
-                    options: "UOM",
-                    reqd: 1,
-                },
-            ],
+            fields: fields,
             primary_action_label: __("Create"),
             primary_action: (values) => {
                 this.action(values, this.frm);
             }
         });
 
-        dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
-        dialog.fields_dict.item_code.df.onchange = () => this.on_item_change(dialog);
-        dialog.fields_dict.bom_name.get_query = function () {
-            return {
-                filters: get_bom_filter_object(self.frm, dialog.get_value("item_code"))
-            };
+        if (fields.some(f => f.fieldname === "item_code")) {
+            dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
+            dialog.fields_dict.item_code.df.onchange = () => this.on_item_change(dialog);
         }
         return dialog;
     }
 
     on_item_change(dialog) {
         const item_code = dialog.get_value("item_code");
-        dialog.set_value("bom_name", null);
-
         if (!item_code) {
-            dialog.set_df_property("bom_name", "hidden", 1);
             return;
         }
-
-        frappe.db.get_list("BOM", {
-            filters: get_bom_filter_object(this.frm, item_code),
-            fields: ["name"]
-        }).then(boms => {
-            if ((boms || []).length > 0) {
-                dialog.set_df_property("bom_name", "hidden", 0);
-            } else {
-                dialog.set_df_property("bom_name", "hidden", 1);
-            }
-        });
-
         frappe.db.get_value(
             "Item",
             item_code,

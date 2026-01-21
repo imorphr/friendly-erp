@@ -82,9 +82,12 @@ class BOMTreeNode:
 class BOMTreeItemNode(BOMTreeNode):
     item_code: str = None
     do_not_explode: bool = False
-    # Quantity of this item required to produce 1 unit (UOM) of the parent item.
-    qty_per_parent_unit: float = 0.0
-    # Total quantity of this item required to produce 1 unit (UOM) of the root item.
+    # Parent-relative quantity: Quantity of this item required to produce BOM-quantity of the parent node.
+    # ie Quantity needed per ONE execution of parent BOM.
+    qty_per_parent_bom_run: float = 0.0
+    # Root-relative quantity (derived):Total quantity of this item required to produce
+    # the configured BOM quantity of the ROOT node.
+    # This value is calculated by propagating quantities top-down through the BOM tree.
     total_required_qty: float = 0.0
     uom: str = None
 
@@ -103,6 +106,21 @@ class BOMTreeSubAssemblyNode(BOMTreeItemNode):
     # whether the sub-assembly was being created afresh while converting tree to BOMs
     # or the sub-assembly was referencing a pre-existing BOM.
     is_preexisting_bom: bool = False
+
+    # Self BOM quantity: Quantity of the sub-assembly item produced by ONE execution of this sub-assembly BOM.
+    # This is the BOM quantity that will be used when creating or referencing the BOM for this sub-assembly.
+    own_bom_qty: float = 0.0
+
+    # Number of times this sub-assembly BOM must be executed in order to satisfy
+    # the total_required_qty coming from the parent BOM.
+    #
+    # This value bridges the mismatch between:
+    # - how much of this sub-assembly the parent needs, and
+    # - how much this sub-assembly BOM produces per execution.
+    #
+    # Child nodes of this sub-assembly must use bom_run_count (not total_required_qty)
+    # as the effective parent quantity when calculating their own requirements.
+    bom_run_count: float = 0.0
 
 
 @dataclass

@@ -44,7 +44,7 @@ class BOMCreatorTreeNodeFactory:
             item_code=item.item_code,
             internal_name=item.item_code,
             display_name=f"{item.sequence}: {item.item_code}",
-            qty_per_parent_unit=item.qty_per_parent_unit,
+            qty_per_parent_bom_run=item.qty_per_parent_bom_run,
             total_required_qty=None, # It should be calculated after tree construction
             uom=item.uom,
             do_not_explode=item.do_not_explode
@@ -60,7 +60,8 @@ class BOMCreatorTreeNodeFactory:
             is_preexisting_bom=item.is_preexisting_bom,
             internal_name=item.item_code,
             display_name=display_name,
-            qty_per_parent_unit=item.qty_per_parent_unit,
+            qty_per_parent_bom_run=item.qty_per_parent_bom_run,
+            own_bom_qty=item.own_bom_qty,
             total_required_qty=None, # It should be calculated after tree construction
             uom=item.uom,
             do_not_explode=item.do_not_explode
@@ -95,7 +96,7 @@ class ExistingBOMTreeNodeFactory:
             is_preexisting_bom=True,
             internal_name=bom.item,
             display_name=display_name,
-            qty_per_parent_unit=bom.quantity,
+            qty_per_parent_bom_qty=bom.quantity,
             total_required_qty=None, # It should be calculated after tree construction
             uom=bom.uom,
         )
@@ -111,7 +112,7 @@ class ExistingBOMTreeNodeFactory:
             item_code=bom_item.item_code,
             internal_name=bom_item.item_code,
             display_name=display_name,
-            qty_per_parent_unit=bom_item.qty,
+            qty_per_parent_bom_qty=bom_item.qty,
             total_required_qty=None, # It should be calculated after tree construction
             uom=bom_item.uom,
         )
@@ -157,7 +158,7 @@ class BOMTreeNodeToCreatorItemConverter:
         doc.parent_node_unique_id = node.parent_node_ref.node_unique_id
         doc.sequence = node.sequence
         doc.item_code = node.item_code
-        doc.qty_per_parent_unit = node.qty_per_parent_unit
+        doc.qty_per_parent_unit = node.qty_per_parent_bom_qty
         doc.uom = node.uom
         doc.do_not_explode = node.do_not_explode
         return doc

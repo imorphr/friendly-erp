@@ -28,12 +28,13 @@ class MultilevelBOMCreatorItemNode(Document):
 		item_operation: DF.Link | None
 		node_type: DF.Literal["ITEM", "SUB_ASSEMBLY"]
 		node_unique_id: DF.Data
+		own_bom_qty: DF.Float
 		parent: DF.Data
 		parent_node_unique_id: DF.Data | None
 		parentfield: DF.Data
 		parenttype: DF.Data
 		project: DF.Link | None
-		qty_per_parent_unit: DF.Float
+		qty_per_parent_bom_run: DF.Float
 		rate: DF.Float
 		rm_cost_as_per: DF.Literal["Valuation Rate", "Last Purchase Rate", "Price List"]
 		sequence: DF.Int

@@ -13,7 +13,9 @@
   "section_break_lccd",
   "item_code",
   "section_break_eqpg",
-  "qty_per_parent_unit",
+  "column_break_pslb",
+  "qty_per_parent_bom_run",
+  "own_bom_qty",
   "column_break_yfyj",
   "uom",
   "section_break_xiyz",
@@ -215,19 +217,28 @@
    "read_only": 1
   },
   {
-   "columns": 1,
-   "description": "Quantity of this item required to produce 1 unit (UOM) of the parent item.",
-   "fieldname": "qty_per_parent_unit",
+   "fieldname": "column_break_pslb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Quantity needed per ONE execution of parent BOM",
+   "fieldname": "qty_per_parent_bom_run",
    "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Unit Quantity"
+   "label": "Qty Per Parent BOM Run"
+  },
+  {
+   "depends_on": "eval:doc.node_type==\"SUB_ASSEMBLY\";",
+   "description": "Quantity of the sub-assembly item produced by ONE execution of this sub-assembly BOM",
+   "fieldname": "own_bom_qty",
+   "fieldtype": "Float",
+   "label": "Own BOM Qty"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-20 11:38:34.626871",
+ "modified": "2026-01-21 12:27:37.071194",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Item Node",
