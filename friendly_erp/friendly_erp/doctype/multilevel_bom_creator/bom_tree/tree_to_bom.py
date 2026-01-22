@@ -70,6 +70,9 @@ class TreeToBOMConverter:
         """
         Creates ERPNext BOM and assigns bom_no back to the node.
         """
+        if not node.children:
+            frappe.throw(f"Cannot create BOM for '{node.item_code}': No child items or operations found.")
+            
         bom = self._create_bom_doc(node)
 
         # Add child items and operations
@@ -98,7 +101,8 @@ class TreeToBOMConverter:
         bom.company = self.company
         bom.item = node.item_code
         bom.bom_type = "Production"       #TODO: As of now hardcoding
-        bom.quantity = 1                # BOM root qty will always be 1 unit
+        bom.uom = node.uom
+        bom.quantity = node.own_bom_qty
         bom.rm_cost_as_per = "Valuation Rate"   #TODO: As of now hardcoding
         bom.project = None              #TODO: As of now hardcoding
         bom.currency = "GBP"            #TODO: As of now hardcoding
@@ -106,7 +110,7 @@ class TreeToBOMConverter:
         bom.buying_price_list = None    #TODO: As of now hardcoding
         return bom
 
-    def _create_bom_item(self, child: BOMTreeItemNode):
+    def _create_bom_item(self, child: BOMTreeItemNode | BOMTreeSubAssemblyNode):
         stock_uom = frappe.get_value(
             "Item",
             child.item_code,
@@ -128,7 +132,7 @@ class TreeToBOMConverter:
         bom_item.source_warehouse = None        # TODO: As of now hardcoding
         bom_item.allow_alternative_item = 0     # TODO: As of now hardcoding
 
-        if child.node_type == "SUB_ASSEMBLY":
+        if child.node_type == "SUB_ASSEMBLY" and isinstance(child, BOMTreeSubAssemblyNode):
             bom_item.bom_no = child.bom_no
 
         return bom_item

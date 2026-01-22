@@ -96,7 +96,8 @@ class ExistingBOMTreeNodeFactory:
             is_preexisting_bom=True,
             internal_name=bom.item,
             display_name=display_name,
-            qty_per_parent_bom_qty=bom.quantity,
+            qty_per_parent_bom_run=bom.quantity,
+            own_bom_qty=bom.quantity,
             total_required_qty=None, # It should be calculated after tree construction
             uom=bom.uom,
         )
@@ -112,7 +113,7 @@ class ExistingBOMTreeNodeFactory:
             item_code=bom_item.item_code,
             internal_name=bom_item.item_code,
             display_name=display_name,
-            qty_per_parent_bom_qty=bom_item.qty,
+            qty_per_parent_bom_run=bom_item.qty,
             total_required_qty=None, # It should be calculated after tree construction
             uom=bom_item.uom,
         )
@@ -158,7 +159,7 @@ class BOMTreeNodeToCreatorItemConverter:
         doc.parent_node_unique_id = node.parent_node_ref.node_unique_id
         doc.sequence = node.sequence
         doc.item_code = node.item_code
-        doc.qty_per_parent_unit = node.qty_per_parent_bom_qty
+        doc.qty_per_parent_bom_run = node.qty_per_parent_bom_run
         doc.uom = node.uom
         doc.do_not_explode = node.do_not_explode
         return doc
@@ -173,6 +174,7 @@ class BOMTreeNodeToCreatorItemConverter:
         doc = BOMTreeNodeToCreatorItemConverter.convert_item_node(node)
         doc.bom_no = node.bom_no
         doc.is_preexisting_bom = node.is_preexisting_bom
+        doc.own_bom_qty = node.own_bom_qty
         return doc
 
     # ---------------------------------------------------------------------

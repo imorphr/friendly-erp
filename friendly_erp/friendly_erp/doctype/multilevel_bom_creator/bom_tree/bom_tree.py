@@ -410,11 +410,11 @@ class BOMTreeNodeActionFlagInitializer:
             node.can_duplicate_bom = False
             return
 
-        # Traverse up using parent_node_ref up to root and check any parent with type SUB_ASSEMBLY and bom_no is present
+        # Traverse up using parent_node_ref up to root and check any parent with type SUB_ASSEMBLY and is_preexisting_bom is true
         current_node = node.parent_node_ref
         is_child_of_existing_sub_assembly = False
         while current_node:
-            if current_node.node_type == "SUB_ASSEMBLY" and hasattr(current_node, "bom_no") and current_node.bom_no:
+            if current_node.node_type == "SUB_ASSEMBLY" and hasattr(current_node, "is_preexisting_bom") and current_node.is_preexisting_bom:
                 is_child_of_existing_sub_assembly = True
                 break
             current_node = current_node.parent_node_ref
@@ -431,8 +431,8 @@ class BOMTreeNodeActionFlagInitializer:
                 node, "is_preexisting_bom") and node.is_preexisting_bom else False
 
         elif node.node_type == "ITEM":
-            node.can_add_child_item = False if is_child_of_existing_sub_assembly else True
-            node.can_add_child_operation = False if is_child_of_existing_sub_assembly else True
+            node.can_add_child_item = False
+            node.can_add_child_operation = False
             node.can_delete = False if is_child_of_existing_sub_assembly else True
             node.can_duplicate_bom = False
 

@@ -16,6 +16,7 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_cre
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
+
 class MultilevelBOMCreator(Document):
     # begin: auto-generated types
     # This code is auto-generated. Do not modify anything in this block.
@@ -45,13 +46,18 @@ class MultilevelBOMCreator(Document):
             frappe.throw("Item Code is required.")
         if not self.company:
             frappe.throw("Company is required.")
+        if not self.qty or self.qty <= 0:
+            frappe.throw("Quantity must be greater than zero.")
+        if not self.uom:
+            frappe.throw("Unit of Measure is required.")
 
     def before_save(self) -> None:
-        if not self.item_nodes and self.item_code:
+        if not self.item_nodes:
             self.add_root_item()
 
     def before_submit(self) -> None:
-        total_count = len(self.item_nodes or []) + len(self.operation_nodes or [])
+        total_count = len(self.item_nodes or []) + \
+            len(self.operation_nodes or [])
         if total_count < 2:
             frappe.throw("No child items or operations found.")
         self.create_boms()
@@ -80,7 +86,6 @@ class MultilevelBOMCreator(Document):
                     f"(already used in Operation nodes)"
                 )
 
-
     def add_root_item(self) -> None:
         """Add the root item to the BOM creator document."""
         self.ensure_draft_status()
@@ -89,7 +94,8 @@ class MultilevelBOMCreator(Document):
 
         item: MultilevelBOMCreatorItemNode = frappe.new_doc(
             "Multilevel BOM Creator Item Node")
-        unique_id = frappe.generate_hash(length=10)  # Here use shorter unique id as it is going to be stored in db
+        # Here use shorter unique id as it is going to be stored in db
+        unique_id = frappe.generate_hash(length=10)
         self.assert_unique_node_id(unique_id)
         item.node_unique_id = unique_id
         item.parent_node_unique_id = None
@@ -105,7 +111,8 @@ class MultilevelBOMCreator(Document):
         """Add a new item under the specified parent node."""
         self.ensure_draft_status()
         if not qty_per_parent_bom_run or qty_per_parent_bom_run <= 0:
-            frappe.throw("Quantity per parent BOM run must be greater than zero.")
+            frappe.throw(
+                "Quantity per parent BOM run must be greater than zero.")
 
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
@@ -134,12 +141,13 @@ class MultilevelBOMCreator(Document):
                 f"Parent node '{parent_item.display_name}' is not a Sub-Assembly. "
                 f"Adding child items is not allowed for this node."
             )
-       
+
         has_bom = self._has_active_bom(item_code)
 
         item: MultilevelBOMCreatorItemNode = frappe.new_doc(
             "Multilevel BOM Creator Item Node")
-        unique_id = frappe.generate_hash(length=10)  # Here use shorter unique id as it is going to be stored in db
+        # Here use shorter unique id as it is going to be stored in db
+        unique_id = frappe.generate_hash(length=10)
         self.assert_unique_node_id(unique_id)
         item.node_unique_id = unique_id
         item.parent_node_unique_id = parent_node_unique_id
@@ -147,17 +155,48 @@ class MultilevelBOMCreator(Document):
         item.item_code = item_code
         item.do_not_explode = True if has_bom else False
         item.qty_per_parent_bom_run = qty_per_parent_bom_run
-        item.own_bom_qty = None # Leaf items are not boms, so own_bom_qty is None
+        item.own_bom_qty = None  # Leaf items are not boms, so own_bom_qty is None
         item.uom = uom
         item.sequence = self._get_child_item_node_sequence(
             parent_node_unique_id)
         self.append("item_nodes", item)
 
+    def update_item(self, node_unique_id: str, qty_per_parent_bom_run: float, uom: str) -> None:
+        self.ensure_draft_status()
+
+        if not qty_per_parent_bom_run or qty_per_parent_bom_run <= 0:
+            frappe.throw(
+                _("Quantity per parent BOM run must be greater than zero."))
+
+        item = next(
+            (row for row in self.item_nodes if row.node_unique_id == node_unique_id),
+            None
+        )
+
+        if not item:
+            frappe.throw(_("Item node not found."))
+
+        if item.node_type != "ITEM":
+            frappe.throw(_("update_item can only be used for ITEM nodes."))
+
+        item.qty_per_parent_bom_run = qty_per_parent_bom_run
+        item.uom = uom
+
     def add_new_sub_assembly(self, parent_node_unique_id: str, item_code: str, qty_per_parent_bom_run: float, own_bom_qty: float, uom: str) -> None:
-        self._add_sub_assembly_internal(parent_node_unique_id, item_code, None, qty_per_parent_bom_run, own_bom_qty, uom)
+        self._add_sub_assembly_internal(
+            parent_node_unique_id, item_code, None, qty_per_parent_bom_run, own_bom_qty, uom)
+
+    def update_new_sub_assembly(self, node_unique_id: str, qty_per_parent_bom_run: float, own_bom_qty: float, uom: str) -> None:
+        self._edit_sub_assembly_internal(
+            node_unique_id, qty_per_parent_bom_run, own_bom_qty, uom)
 
     def add_existing_sub_assembly(self, parent_node_unique_id: str, bom_name: str, qty_per_parent_bom_run: float, uom: str) -> None:
-        self._add_sub_assembly_internal(parent_node_unique_id, None, bom_name, qty_per_parent_bom_run, None, uom)
+        self._add_sub_assembly_internal(
+            parent_node_unique_id, None, bom_name, qty_per_parent_bom_run, None, uom)
+
+    def update_existing_sub_assembly(self, node_unique_id: str, qty_per_parent_bom_run: float, uom: str) -> None:
+        self._edit_sub_assembly_internal(
+            node_unique_id, qty_per_parent_bom_run, None, uom)
 
     def _add_sub_assembly_internal(self, parent_node_unique_id: str, item_code: str, bom_name: str, qty_per_parent_bom_run: float, own_bom_qty: float, uom: str) -> None:
         self.ensure_draft_status()
@@ -165,10 +204,12 @@ class MultilevelBOMCreator(Document):
             frappe.throw("Either BOM name or Item code must be provided.")
 
         if not qty_per_parent_bom_run or qty_per_parent_bom_run <= 0:
-            frappe.throw("Quantity per parent BOM run must be greater than zero.")
+            frappe.throw(
+                "Quantity per parent BOM run must be greater than zero.")
 
         if not bom_name and not own_bom_qty > 0:
-            frappe.throw("Own BOM Quantity must be provided for new sub-assembly.")
+            frappe.throw(
+                "Own BOM Quantity must be provided for new sub-assembly.")
 
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
@@ -206,28 +247,60 @@ class MultilevelBOMCreator(Document):
             if bom.company != self.company:
                 frappe.throw(_("Selected BOM belongs to a different company"))
 
-        if tree.item_node_exists_in_upward_path(parent_node_unique_id, bom.item if bom else item_code):
+        item_code_to_check = bom.item if bom else item_code
+        if tree.item_node_exists_in_upward_path(parent_node_unique_id, item_code_to_check):
             frappe.throw(
-                f"Item '{bom.item}' already exists as a direct or indirect parent. Item can not be child of itself."
+                f"Item '{item_code_to_check}' already exists as a direct or indirect parent. Item can not be child of itself."
             )
 
         item: MultilevelBOMCreatorItemNode = frappe.new_doc(
             "Multilevel BOM Creator Item Node")
-        unique_id = frappe.generate_hash(length=10)  # Here use shorter unique id as it is going to be stored in db
+        # Here use shorter unique id as it is going to be stored in db
+        unique_id = frappe.generate_hash(length=10)
         self.assert_unique_node_id(unique_id)
         item.node_unique_id = unique_id
         item.parent_node_unique_id = parent_node_unique_id
         item.node_type = "SUB_ASSEMBLY"
         item.item_code = bom.item if bom_name else item_code
-        item.bom_no = bom_name if bom_name else None # For new sub-assembly, bom_no is None
-        item.is_preexisting_bom = True if bom_name else False # For new sub-assembly, is_preexisting_bom is False
+        # For new sub-assembly, bom_no is None
+        item.bom_no = bom_name if bom_name else None
+        # For new sub-assembly, is_preexisting_bom is False
+        item.is_preexisting_bom = True if bom_name else False
         item.do_not_explode = False
         item.qty_per_parent_bom_run = qty_per_parent_bom_run
-        item.own_bom_qty = bom.quantity if bom_name else own_bom_qty # if it is existing bom get own_bom_qty from bom else from parameter
+        # if it is existing bom get own_bom_qty from bom else from parameter
+        item.own_bom_qty = bom.quantity if bom else own_bom_qty
         item.uom = uom
         item.sequence = self._get_child_item_node_sequence(
             parent_node_unique_id)
         self.append("item_nodes", item)
+
+    def _edit_sub_assembly_internal(self, node_unique_id: str, qty_per_parent_bom_run: float, own_bom_qty: float, uom: str) -> None:
+        self.ensure_draft_status()
+
+        if not qty_per_parent_bom_run or qty_per_parent_bom_run <= 0:
+            frappe.throw(
+                _("Quantity per parent BOM run must be greater than zero."))
+
+        item = next(
+            (row for row in self.item_nodes if row.node_unique_id == node_unique_id),
+            None
+        )
+
+        if not item:
+            frappe.throw(_("Sub-Assembly node not found."))
+
+        if item.node_type != "SUB_ASSEMBLY":
+            frappe.throw(
+                _("update_new_sub_assembly can only be used for Sub-Assembly nodes."))
+
+        if not item.is_preexisting_bom and (not own_bom_qty or own_bom_qty <= 0):
+            frappe.throw(_("Own BOM Quantity must be greater than zero."))
+
+        item.qty_per_parent_bom_run = qty_per_parent_bom_run
+        if not item.is_preexisting_bom:
+            item.own_bom_qty = own_bom_qty
+        item.uom = uom
 
     def add_operation(self, parent_node_unique_id: str, operation_name: str, time_in_mins: float, workstation_type: str, workstation: str) -> None:
         """Add a new operation under the specified parent node."""
@@ -259,7 +332,8 @@ class MultilevelBOMCreator(Document):
 
         operation: MultilevelBOMCreatorOperationNode = frappe.new_doc(
             "Multilevel BOM Creator Operation Node")
-        unique_id = frappe.generate_hash(length=10)  # Here use shorter unique id as it is going to be stored in db
+        # Here use shorter unique id as it is going to be stored in db
+        unique_id = frappe.generate_hash(length=10)
         self.assert_unique_node_id(unique_id)
         operation.node_unique_id = unique_id
         operation.parent_node_unique_id = parent_node_unique_id
@@ -443,7 +517,17 @@ def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_
     multilevel_bom_creator.save()
 
 @frappe.whitelist()
-def add_new_sub_assembly(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str,qty_per_parent_bom_run: float, own_bom_qty: float, uom: str) -> None:
+def update_item(multilevel_bom_creator_name: str, node_unique_id: str, qty_per_parent_bom_run: float, uom: str) -> None:
+    multilevel_bom_creator = frappe.get_doc(
+        "Multilevel BOM Creator", multilevel_bom_creator_name)
+    multilevel_bom_creator.update_item(
+        node_unique_id, qty_per_parent_bom_run, uom)
+    # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
+    multilevel_bom_creator.flags.notify_update = False
+    multilevel_bom_creator.save()
+
+@frappe.whitelist()
+def add_new_sub_assembly(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, qty_per_parent_bom_run: float, own_bom_qty: float, uom: str) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_new_sub_assembly(
@@ -453,11 +537,32 @@ def add_new_sub_assembly(multilevel_bom_creator_name: str, parent_node_unique_id
     multilevel_bom_creator.save()
 
 @frappe.whitelist()
+def update_new_sub_assembly(multilevel_bom_creator_name: str, node_unique_id: str, qty_per_parent_bom_run: float, own_bom_qty: float, uom: str) -> None:
+    multilevel_bom_creator = frappe.get_doc(
+        "Multilevel BOM Creator", multilevel_bom_creator_name)
+    multilevel_bom_creator.update_new_sub_assembly(
+        node_unique_id, qty_per_parent_bom_run, own_bom_qty, uom)
+    # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
+    multilevel_bom_creator.flags.notify_update = False
+    multilevel_bom_creator.save()
+
+
+@frappe.whitelist()
 def add_existing_sub_assembly(multilevel_bom_creator_name: str, parent_node_unique_id: str, bom_name: str, qty_per_parent_bom_run: float, uom: str) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_existing_sub_assembly(
         parent_node_unique_id, bom_name, qty_per_parent_bom_run, uom)
+    # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
+    multilevel_bom_creator.flags.notify_update = False
+    multilevel_bom_creator.save()
+
+@frappe.whitelist()
+def update_existing_sub_assembly(multilevel_bom_creator_name: str, node_unique_id: str, qty_per_parent_bom_run: float, uom: str) -> None:
+    multilevel_bom_creator = frappe.get_doc(
+        "Multilevel BOM Creator", multilevel_bom_creator_name)
+    multilevel_bom_creator.update_existing_sub_assembly(
+        node_unique_id, qty_per_parent_bom_run, uom)
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
@@ -495,15 +600,3 @@ def delete_item_or_operation(multilevel_bom_creator_name: str, node_unique_id: s
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
-
-
-# @frappe.whitelist()
-# def create_boms(multilevel_bom_creator_name: str) -> dict[str, str]:
-#     multilevel_bom_creator = frappe.get_doc(
-#         "Multilevel BOM Creator",
-#         multilevel_bom_creator_name
-#     )
-#     new_boms = multilevel_bom_creator.create_boms()
-#     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
-#     multilevel_bom_creator.flags.notify_update = False
-#     multilevel_bom_creator.save()
