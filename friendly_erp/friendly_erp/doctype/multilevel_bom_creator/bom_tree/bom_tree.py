@@ -158,6 +158,10 @@ class BOMTree:
             frappe.throw("Root node is already set. Can not set it again.")
         self.root = root_node
         self.root.tree_ref = self   # Putting tree ref inside root node ref
+        self.root.parent_node_unique_id = None
+        self.root.parent_node_ref = None
+        self.root.depth = 0
+        self.root.indent = 0
         self.node_map[root_node.node_unique_id] = root_node
         BOMTreeNodeActionFlagInitializer.initialize_action_flags(root_node)
 
