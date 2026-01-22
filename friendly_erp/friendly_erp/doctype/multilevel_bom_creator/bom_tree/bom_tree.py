@@ -16,6 +16,7 @@ class BOMTreeNode:
     node_unique_id: str = None
     internal_name: str = None
     display_name: str = None
+    parent_node_unique_id: str = None
     parent_node_ref: Optional['BOMTreeNode'] = None
     tree_ref: 'BOMTree' = None
     children: List['BOMTreeNode'] = field(default_factory=list)
@@ -38,6 +39,7 @@ class BOMTreeNode:
     # Action flags
     can_add_child_item: bool = False
     can_add_child_operation: bool = False
+    can_edit: bool = False
     can_delete: bool = False
     can_duplicate_bom: bool = False
 
@@ -59,6 +61,7 @@ class BOMTreeNode:
                     f"Circular parent-child relationship detected for {child_node.display_name}")
             current = current.parent_node_ref
 
+        child_node.parent_node_unique_id = self.node_unique_id
         child_node.parent_node_ref = self
         child_node.depth = self.depth + 1
         # Indent and depth will have same value.
@@ -82,9 +85,12 @@ class BOMTreeNode:
 class BOMTreeItemNode(BOMTreeNode):
     item_code: str = None
     do_not_explode: bool = False
-    # Quantity of this item required to produce 1 unit (UOM) of the parent item.
-    qty_per_parent_unit: float = 0.0
-    # Total quantity of this item required to produce 1 unit (UOM) of the root item.
+    # Parent-relative quantity: Quantity of this item required to produce BOM-quantity of the parent node.
+    # ie Quantity needed per ONE execution of parent BOM.
+    component_qty_per_parent_bom_run: float = 0.0
+    # Root-relative quantity (derived):Total quantity of this item required to produce
+    # the configured BOM quantity of the ROOT node.
+    # This value is calculated by propagating quantities top-down through the BOM tree.
     total_required_qty: float = 0.0
     uom: str = None
 
@@ -103,6 +109,21 @@ class BOMTreeSubAssemblyNode(BOMTreeItemNode):
     # whether the sub-assembly was being created afresh while converting tree to BOMs
     # or the sub-assembly was referencing a pre-existing BOM.
     is_preexisting_bom: bool = False
+
+    # Self BOM quantity: Quantity of the sub-assembly item produced by ONE execution of this sub-assembly BOM.
+    # This is the BOM quantity that will be used when creating or referencing the BOM for this sub-assembly.
+    own_batch_size: float = 0.0
+
+    # Number of times this sub-assembly BOM must be executed in order to satisfy
+    # the total_required_qty coming from the parent BOM.
+    #
+    # This value bridges the mismatch between:
+    # - how much of this sub-assembly the parent needs, and
+    # - how much this sub-assembly BOM produces per execution.
+    #
+    # Child nodes of this sub-assembly must use bom_run_count (not total_required_qty)
+    # as the effective parent quantity when calculating their own requirements.
+    bom_run_count: float = 0.0
 
 
 @dataclass
@@ -137,6 +158,10 @@ class BOMTree:
             frappe.throw("Root node is already set. Can not set it again.")
         self.root = root_node
         self.root.tree_ref = self   # Putting tree ref inside root node ref
+        self.root.parent_node_unique_id = None
+        self.root.parent_node_ref = None
+        self.root.depth = 0
+        self.root.indent = 0
         self.node_map[root_node.node_unique_id] = root_node
         BOMTreeNodeActionFlagInitializer.initialize_action_flags(root_node)
 
@@ -380,6 +405,7 @@ class BOMTreeNodeActionFlagInitializer:
             # This is the root node
             node.can_add_child_item = True
             node.can_add_child_operation = True
+            node.can_edit = True
             node.can_delete = False  # Root node cannot be deleted
             node.can_duplicate_bom = False
             return
@@ -388,15 +414,16 @@ class BOMTreeNodeActionFlagInitializer:
         if node.is_projected:
             node.can_add_child_item = False
             node.can_add_child_operation = False
+            node.can_edit = False
             node.can_delete = False
             node.can_duplicate_bom = False
             return
 
-        # Traverse up using parent_node_ref up to root and check any parent with type SUB_ASSEMBLY and bom_no is present
+        # Traverse up using parent_node_ref up to root and check any parent with type SUB_ASSEMBLY and is_preexisting_bom is true
         current_node = node.parent_node_ref
         is_child_of_existing_sub_assembly = False
         while current_node:
-            if current_node.node_type == "SUB_ASSEMBLY" and hasattr(current_node, "bom_no") and current_node.bom_no:
+            if current_node.node_type == "SUB_ASSEMBLY" and hasattr(current_node, "is_preexisting_bom") and current_node.is_preexisting_bom:
                 is_child_of_existing_sub_assembly = True
                 break
             current_node = current_node.parent_node_ref
@@ -407,25 +434,29 @@ class BOMTreeNodeActionFlagInitializer:
                 node, "bom_no") and node.bom_no or is_child_of_existing_sub_assembly else True
             node.can_add_child_operation = False if hasattr(
                 node, "bom_no") and node.bom_no or is_child_of_existing_sub_assembly else True
+            node.can_edit = False if is_child_of_existing_sub_assembly else True
             node.can_delete = False if is_child_of_existing_sub_assembly else True
             node.can_duplicate_bom = True if hasattr(
                 node, "bom_no") and node.bom_no and not is_child_of_existing_sub_assembly and hasattr(
                 node, "is_preexisting_bom") and node.is_preexisting_bom else False
 
         elif node.node_type == "ITEM":
-            node.can_add_child_item = False if is_child_of_existing_sub_assembly else True
-            node.can_add_child_operation = False if is_child_of_existing_sub_assembly else True
+            node.can_add_child_item = False
+            node.can_add_child_operation = False
+            node.can_edit = False if is_child_of_existing_sub_assembly else True
             node.can_delete = False if is_child_of_existing_sub_assembly else True
             node.can_duplicate_bom = False
 
         elif node.node_type == "OPERATION":
             node.can_add_child_item = False
             node.can_add_child_operation = False
+            node.can_edit = False if is_child_of_existing_sub_assembly else True
             node.can_delete = False if is_child_of_existing_sub_assembly else True
             node.can_duplicate_bom = False
 
         elif node.node_type == "SUB_OPERATION":
             node.can_add_child_item = False
             node.can_add_child_operation = False
+            node.can_edit = False
             node.can_delete = False
             node.can_duplicate_bom = False
