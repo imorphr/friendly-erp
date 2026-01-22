@@ -102,7 +102,7 @@ class TreeToBOMConverter:
         bom.item = node.item_code
         bom.bom_type = "Production"       #TODO: As of now hardcoding
         bom.uom = node.uom
-        bom.quantity = node.own_bom_qty
+        bom.quantity = node.own_batch_size
         bom.rm_cost_as_per = "Valuation Rate"   #TODO: As of now hardcoding
         bom.project = None              #TODO: As of now hardcoding
         bom.currency = "GBP"            #TODO: As of now hardcoding
@@ -122,11 +122,11 @@ class TreeToBOMConverter:
         ).get("conversion_factor") or 1.0
         bom_item = frappe.new_doc("BOM Item")
         bom_item.item_code = child.item_code
-        bom_item.qty = child.qty_per_parent_bom_run
+        bom_item.qty = child.component_qty_per_parent_bom_run
         bom_item.uom = child.uom
         bom_item.stock_uom = stock_uom
         bom_item.conversion_factor = conversion_factor
-        bom_item.stock_qty = child.qty_per_parent_bom_run * conversion_factor
+        bom_item.stock_qty = child.component_qty_per_parent_bom_run * conversion_factor
         bom_item.rate = 1                       # TODO: As of now hardcoding
         bom_item.do_not_explode = child.do_not_explode
         bom_item.source_warehouse = None        # TODO: As of now hardcoding

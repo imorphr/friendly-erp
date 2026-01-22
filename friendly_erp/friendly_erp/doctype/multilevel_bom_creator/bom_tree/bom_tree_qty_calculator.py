@@ -13,14 +13,14 @@ class BOMTreeQtyCalculator:
     Calculates quantity propagation for a multi-level BOM tree.
 
     Quantity semantics:
-    - qty_per_parent_bom_run : quantity needed per ONE execution of parent BOM
-    - total_required_qty     : total quantity needed to satisfy ROOT BOM quantity
-    - bom_run_count          : number of times a sub-assembly BOM must be executed
+    - component_qty_per_parent_bom_run  : quantity needed per ONE execution of parent BOM
+    - total_required_qty                : total quantity needed to satisfy ROOT BOM quantity
+    - bom_run_count                     : number of times a sub-assembly BOM must be executed
 
     Root node:
-    - total_required_qty = own_bom_qty
+    - total_required_qty = own_batch_size
     - bom_run_count = 1
-    - qty_per_parent_bom_run = own_bom_qty
+    - component_qty_per_parent_bom_run = own_batch_size
     """
 
     def __init__(self, bom_tree: BOMTree):
@@ -31,8 +31,8 @@ class BOMTreeQtyCalculator:
         """
         Entry point to calculate quantities for the entire tree.
         """
-        self.root_node.qty_per_parent_bom_run = self.root_node.own_bom_qty
-        self.root_node.total_required_qty = self.root_node.own_bom_qty
+        self.root_node.component_qty_per_parent_bom_run = self.root_node.own_batch_size
+        self.root_node.total_required_qty = self.root_node.own_batch_size
         self.root_node.bom_run_count = 1
         
         # Start recursion from children, not root
@@ -55,9 +55,9 @@ class BOMTreeQtyCalculator:
             frappe.throw("Parent of ITEM/SUB_ASSEMBLY must be a Sub Assembly node")
         parent_bom_run_count = parent_node.bom_run_count
 
-        node.total_required_qty = parent_bom_run_count * node.qty_per_parent_bom_run
+        node.total_required_qty = parent_bom_run_count * node.component_qty_per_parent_bom_run
         if isinstance(node, BOMTreeSubAssemblyNode):
-            node.bom_run_count = node.total_required_qty / node.own_bom_qty
+            node.bom_run_count = node.total_required_qty / node.own_batch_size
 
         for child in (node.children or []):
             self._calculate_recursively(child)

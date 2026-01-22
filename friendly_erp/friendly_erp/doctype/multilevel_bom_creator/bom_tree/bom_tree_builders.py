@@ -171,21 +171,21 @@ class OperationTreeBuilder:
                 op_node.error_messages["CYCLIC_NODE"] = "Cyclic operation detected"
 
 class ExistingBOMTreeBuilder:
-    def __init__(self, bom_name: str):
-        self.bom_name = bom_name
+    def __init__(self, bom_no: str):
+        self.bom_no = bom_no
         self.tree = None
 
     def create(self) -> BOMTree:
         if self.tree:
             frappe.throw("Tree is already built.")
         self.tree = BOMTree()
-        self._traverse_bom(self.bom_name, None, 0)
+        self._traverse_bom(self.bom_no, None, 0)
         return self.tree
 
-    def _traverse_bom(self, bom_name: str, parent_node: BOMTreeNode, sequence: int):
-        bom = frappe.get_doc("BOM", bom_name)
+    def _traverse_bom(self, bom_no: str, parent_node: BOMTreeNode, sequence: int):
+        bom = frappe.get_doc("BOM", bom_no)
         if not bom:
-            frappe.throw(f"BOM '{bom_name}' not found.")
+            frappe.throw(f"BOM '{bom_no}' not found.")
 
         node = ExistingBOMTreeNodeFactory.create_from_bom(
             bom, sequence, self.tree)
