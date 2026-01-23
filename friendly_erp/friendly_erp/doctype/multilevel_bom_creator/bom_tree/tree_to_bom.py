@@ -163,6 +163,7 @@ class TreeToBOMConverter:
         operation = frappe.new_doc("BOM Operation")
         operation.operation = child.operation
         operation.time_in_mins = child.time_in_mins
+        operation.fixed_time = child.fixed_time
         operation.sequence_id = child.sequence
         operation.workstation_type = child.workstation_type
         operation.workstation = child.workstation

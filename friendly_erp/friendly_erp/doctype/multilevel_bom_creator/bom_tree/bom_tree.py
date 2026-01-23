@@ -130,8 +130,13 @@ class BOMTreeSubAssemblyNode(BOMTreeItemNode):
 class BOMTreeOperationNode(BOMTreeNode):
     operation: str = None
     time_in_mins: float = 0.0
+    fixed_time: bool = False
     workstation_type: str = None
     workstation: str = None
+    # Root-relative time (derived):Total time of this operation required to produce
+    # the configured BOM quantity of the ROOT node.
+    # This value is calculated by propagating time top-down through the BOM tree.
+    total_required_time_in_mins: float = 0.0
 
 
 @dataclass

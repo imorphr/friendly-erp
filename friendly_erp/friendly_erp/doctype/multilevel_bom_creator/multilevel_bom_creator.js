@@ -92,26 +92,28 @@ function show_add_operation_dialog(frm, parent, full_data_ctx) {
     const dialog = new NewChildOperationDialogFactory(frm, (values, frm) => {
         add_operation(frm, parent, values);
         dialog.hide();
-    }).create();
+    },
+        "ADD",
+        parent).create();
     dialog.show();
 }
 
-function show_edit_dialog(frm, ctx, full_data_ctx) {
+function show_update_dialog(frm, ctx, full_data_ctx) {
     const parent = ctx.parent_node_unique_id ? full_data_ctx[ctx.parent_node_unique_id] : null;
     if (ctx.node_type === "ITEM") {
-        show_edit_item_dialog(frm, ctx, parent);
+        show_update_item_dialog(frm, ctx, parent);
     } else if (ctx.node_type === "SUB_ASSEMBLY") {
         if (ctx.is_preexisting_bom) {
-            show_edit_existing_sub_assembly_dialog(frm, ctx, parent);
+            show_update_existing_sub_assembly_dialog(frm, ctx, parent);
         } else {
-            show_edit_new_sub_assembly_dialog(frm, ctx, parent);
+            show_update_new_sub_assembly_dialog(frm, ctx, parent);
         }
     } else if (ctx.node_type === "OPERATION") {
-        show_edit_operation_dialog(frm, ctx, parent);
+        show_update_operation_dialog(frm, ctx, parent);
     }
 }
 
-function show_edit_item_dialog(frm, ctx, parent) {
+function show_update_item_dialog(frm, ctx, parent) {
     const dlg_factory = new NewChildItemDialogFactory(
         frm,
         (values, frm) => {
@@ -127,7 +129,7 @@ function show_edit_item_dialog(frm, ctx, parent) {
     dialog.show();
 }
 
-function show_edit_new_sub_assembly_dialog(frm, ctx, parent) {
+function show_update_new_sub_assembly_dialog(frm, ctx, parent) {
     const dlg_factory = new NewChildItemDialogFactory(
         frm,
         (values, frm) => {
@@ -143,7 +145,7 @@ function show_edit_new_sub_assembly_dialog(frm, ctx, parent) {
     dialog.show();
 }
 
-function show_edit_existing_sub_assembly_dialog(frm, ctx, parent) {
+function show_update_existing_sub_assembly_dialog(frm, ctx, parent) {
     const dlg_factory = new NewChildItemDialogFactory(
         frm,
         (values, frm) => {
@@ -159,8 +161,16 @@ function show_edit_existing_sub_assembly_dialog(frm, ctx, parent) {
     dialog.show();
 }
 
-function show_edit_operation_dialog(frm, ctx, parent) {
-
+function show_update_operation_dialog(frm, ctx, parent) {
+    const dlg_factory = new NewChildOperationDialogFactory(frm, (values, frm) => {
+        update_operation(frm, ctx, values);
+        dialog.hide();
+    },
+        "EDIT",
+        parent);
+    const dialog = dlg_factory.create();
+    dlg_factory.prefill_operation_dialog(dialog, ctx);
+    dialog.show();
 }
 
 function duplicate_bom(frm, parent) {
@@ -320,13 +330,35 @@ function add_operation(frm, parent, values) {
         args: {
             multilevel_bom_creator_name: frm.doc.name,
             parent_node_unique_id: parent.node_unique_id,
-            operation_name: values.operation_name,
+            operation: values.operation,
             time_in_mins: values.time_in_mins,
+            fixed_time: values.fixed_time,
             workstation_type: values.workstation_type,
             workstation: values.workstation
         },
         freeze: true,
         freeze_message: __("Adding Operation..."),
+        callback: function (r) {
+            if (!r.exc) {
+                frm.reload_doc();
+            }
+        }
+    });
+}
+
+function update_operation(frm, ctx, values) {
+    frappe.call({
+        method: "friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator.update_operation",
+        args: {
+            multilevel_bom_creator_name: frm.doc.name,
+            node_unique_id: ctx.node_unique_id,
+            time_in_mins: values.time_in_mins,
+            fixed_time: values.fixed_time,
+            workstation_type: values.workstation_type,
+            workstation: values.workstation
+        },
+        freeze: true,
+        freeze_message: __("Updating Operation..."),
         callback: function (r) {
             if (!r.exc) {
                 frm.reload_doc();
@@ -396,6 +428,16 @@ class BOMTreeHelper {
                 name: "Req. Qty",
                 id: "total_required_qty",
                 width: 110
+            },
+            {
+                name: "Time (mins)",
+                id: "time_in_mins",
+                width: 100
+            },
+            {
+                name: "Req. Time (mins)",
+                id: "total_required_time_in_mins",
+                width: 130
             },
             {
                 name: "",
@@ -649,7 +691,7 @@ class MenuProvider {
         }
 
         if (ctx.can_edit) {
-            items.push({ label: "Edit", action: show_edit_dialog });
+            items.push({ label: "Edit", action: show_update_dialog });
         }
 
         if (ctx.can_duplicate_bom) {
@@ -899,36 +941,39 @@ class NewChildItemDialogFactory {
 }
 
 class NewChildOperationDialogFactory {
-    constructor(frm, action) {
+    constructor(frm, action, mode, parent_node) {
         this.frm = frm;
         this.action = action;
+        this.mode = mode;   // mode can be 'ADD' or 'EDIT'
+        this.parent_node = parent_node;
     }
 
     create() {
+        const operation_time_label = this.parent_node
+            ? __(`Operation Time Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.uom}) of ${this.parent_node.item_code}`)
+            : __("Operation Time");
         const dialog = new frappe.ui.Dialog({
-            title: __("Add New Operation"),
+            title: this.get_title(),
             fields: [
                 {
                     label: __("Operation"),
                     fieldtype: "Link",
-                    fieldname: "operation_name",
+                    fieldname: "operation",
                     options: "Operation",
                     reqd: 1,
+                    read_only: this.mode === "EDIT" ? 1 : 0,
+                    onchange: () => this.on_operation_change(dialog)
                 },
+                { fieldtype: "Section Break" },
                 {
                     label: __("Workstation Type"),
                     fieldtype: "Link",
                     fieldname: "workstation_type",
                     options: "Workstation Type",
                     reqd: 0,
+                    onchange: () => this.on_workstation_type_change(dialog)
                 },
                 { fieldtype: "Column Break" },
-                {
-                    label: __("Operation Time (in mins)"),
-                    fieldtype: "Float",
-                    fieldname: "time_in_mins",
-                    reqd: 1,
-                },
                 {
                     label: __("Workstation"),
                     fieldtype: "Link",
@@ -936,13 +981,76 @@ class NewChildOperationDialogFactory {
                     options: "Workstation",
                     reqd: 0,
                 },
+
+                { fieldtype: "Section Break" },
+                {
+                    label: operation_time_label,
+                    fieldtype: "Float",
+                    fieldname: "time_in_mins",
+                    reqd: 1,
+                    description: __("in mins")
+                },
+                {
+                    label: __("Fixed Time"),
+                    fieldtype: "Check",
+                    fieldname: "fixed_time",
+                    description: __("Operation time does not depend on quantity to produce")
+                },
+
             ],
-            primary_action_label: __("Create"),
+            primary_action_label: this.mode === "ADD" ? __("Create") : __("Update"),
             primary_action: (values) => {
                 this.action(values, this.frm);
             },
         });
 
         return dialog;
+    }
+
+    prefill_operation_dialog(dialog, ctx) {
+        dialog.set_value("operation", ctx.operation);
+        dialog.set_value("time_in_mins", ctx.time_in_mins);
+        dialog.set_value("fixed_time", ctx.fixed_time);
+        dialog.set_value("workstation_type", ctx.workstation_type);
+        dialog.set_value("workstation", ctx.workstation);
+    }
+
+    on_operation_change(dialog) {
+        const operation = dialog.get_value("operation");
+        if (!operation) {
+            dialog.set_value("workstation_type", r.message.default_workstation_type);
+            dialog.set_value("workstation", r.message.default_workstation);
+            return;
+        }
+
+        frappe.db.get_value(
+            "Operation",
+            operation,
+            ["total_operation_time", "workstation"]
+        ).then((r) => {
+            if (r && r.message) {
+                if (r.message.total_operation_time) {
+                    dialog.set_value("time_in_mins", r.message.total_operation_time);
+                }
+                if (r.message.workstation) {
+                    dialog.set_value("workstation", r.message.workstation);
+                }
+            }
+        });
+    }
+
+    on_workstation_type_change(dialog) {
+        const workstation_type = dialog.get_value("workstation_type");
+        dialog.set_df_property("workstation", "hidden", workstation_type ? true : false);
+    }
+
+    get_title() {
+        if (this.mode === "ADD") {
+            return __("Add Operation");
+        }
+
+        if (this.mode === "EDIT") {
+            return __("Edit Operation");
+        }
     }
 }

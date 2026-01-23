@@ -12,7 +12,7 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_
     BOMCreatorTreeNodeFactory,
     ExistingBOMTreeNodeFactory
 )
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_qty_calculator import BOMTreeQtyCalculator
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_qty_time_calculator import BOMTreeQtyTimeCalculator
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
@@ -58,7 +58,7 @@ class BOMCreatorTreeBuilder:
             frappe.throw("Tree is already built.")
         self.tree = BOMTree()
         self._build_tree()
-        BOMTreeQtyCalculator(self.tree).calculate()
+        BOMTreeQtyTimeCalculator(self.tree).calculate()
         return self.tree
 
     def _build_tree(self):
@@ -125,17 +125,17 @@ class BOMCreatorTreeBuilder:
 
 
 class OperationTreeBuilder:
-    def __init__(self, operation_name: str):
-        self.operation_name = operation_name
+    def __init__(self, operation: str):
+        self.operation = operation
         self.tree = None
 
     def create(self) -> BOMTree:
         if self.tree:
             frappe.throw("Tree is already built.")
         self.tree = BOMTree()
-        operation = frappe.get_doc("Operation", self.operation_name)
+        operation = frappe.get_doc("Operation", self.operation)
         if not operation:
-            frappe.throw(f"Operation '{self.operation_name}' not found.")
+            frappe.throw(f"Operation '{self.operation}' not found.")
         op_node = BOMTreeOperationNode(
             tree_ref=self.tree,
             node_unique_id=frappe.generate_hash(), # Using a GUID longer than 10 characters to reduce the risk of ID collisions
@@ -147,12 +147,12 @@ class OperationTreeBuilder:
         )
         
         self.tree.set_root(op_node)
-        self._traverse_operations(self.operation_name, op_node)
+        self._traverse_operations(self.operation, op_node)
         return self.tree
 
-    def _traverse_operations(self, operation_name, parent_node: BOMTreeNode):
-        operation = frappe.get_doc("Operation", operation_name)
-        for sub_operation in operation.sub_operations or []:
+    def _traverse_operations(self, operation, parent_node: BOMTreeNode):
+        operation_doc = frappe.get_doc("Operation", operation)
+        for sub_operation in operation_doc.sub_operations or []:
             op_node = BOMTreeSubOperationNode(
                 tree_ref=self.tree,
                 node_unique_id=frappe.generate_hash(),  # Using a GUID longer than 10 characters to reduce the risk of ID collisions
