@@ -380,22 +380,22 @@ class BOMTreeHelper {
             {
                 name: "UOM",
                 id: "uom",
-                width: 80
+                width: 90
             },
             {
                 name: "Batch Size",
                 id: "own_batch_size",
-                width: 130
+                width: 110
             },
             {
                 name: "Component Qty",
                 id: "component_qty_per_parent_bom_run",
-                width: 160
+                width: 130
             },
             {
                 name: "Req. Qty",
                 id: "total_required_qty",
-                width: 90
+                width: 110
             },
             {
                 name: "",
@@ -451,9 +451,12 @@ class BOMTreeHelper {
         this.set_data(data);
         this.reset_tree_html();
 
-        const columns = this.get_bom_tree_columns();
         const $parent = this.get_tree_parent_html_el();
         const container = $('<div>').appendTo($parent);
+
+        const columns = this.get_bom_tree_columns();
+        // Compute width dynamically according to container width
+        this.apply_dynamic_tree_column_width(columns, container);
 
         this.data_table = new frappe.DataTable(container[0], {
             columns: columns,
@@ -464,6 +467,47 @@ class BOMTreeHelper {
 
         this.register_row_action_click_handler();
     }
+
+    /**
+     * Dynamically adjusts the tree (first) column width to fill the remaining
+     * available space after fixed-width columns are applied.
+     *
+     * This ensures proper alignment and avoids layout issues when tree indentation
+     * grows with hierarchy depth.
+     * 
+     * NOTE: Frappe data table ratio layout can do this thing automatically but
+     * it messes up the first sequence number (index) column width when index are
+     * greater than one digit. So instead of using ratio layout, we manually compute
+     * and set the first column width here.
+     */
+    apply_dynamic_tree_column_width(columns, container) {
+        // Total width available to DataTable
+        const containerWidth = container.parent().width();
+
+        // Row index column (empirically ~48px)
+        const INDEX_COL_WIDTH = 48;
+
+        // Scrollbar safety buffer
+        const SCROLLBAR_WIDTH = 10;
+
+        let fixedWidthSum = 0;
+
+        columns.forEach((col, idx) => {
+            if (idx !== 0) {
+                fixedWidthSum += col.width || 0;
+            }
+        });
+
+        const remaining =
+            containerWidth
+            - INDEX_COL_WIDTH
+            - fixedWidthSum
+            - SCROLLBAR_WIDTH;
+
+        // Safety floor
+        columns[0].width = Math.max(300, remaining);
+    }
+
 
     is_action_present_for_node(data) {
         if (data.is_projected) {
@@ -509,11 +553,34 @@ class BOMTreeHelper {
         // Move menu to body so it can overflow table cell
         $('body').append($menu);
 
+        const GAP = 4;
+        const SHIFT_LEFT = 30;
+
         const rect = $trigger[0].getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const openUpwards = rect.top > viewportHeight * 0.8; // open upwards if in bottom 20% of viewport
+
+        let top;
+        if (openUpwards) {
+            // anchor menu above the row and move it upward via transform
+            top = rect.top - GAP;
+            $menu.css({
+                transform: 'translateY(-100%)',
+                transformOrigin: 'bottom'
+            });
+        } else {
+            // normal downward opening
+            top = rect.bottom + GAP;
+            $menu.css({
+                transform: 'none',
+                transformOrigin: 'top'
+            });
+        }
+
         $menu.css({
             position: 'fixed',
-            top: rect.bottom + 4,
-            left: rect.left,
+            top: top,
+            left: rect.left - SHIFT_LEFT,
             zIndex: 9999
         }).addClass('show');
 
@@ -709,7 +776,7 @@ class NewChildItemDialogFactory {
             reqd: 1,
             read_only: this.item_type === "EXISTING_SUB_ASSEMBLY" ? 1 : 0
         });
-        const component_qty_label = this.parent_node 
+        const component_qty_label = this.parent_node
             ? __(`Component Qty Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.uom}) of ${this.parent_node.item_code}`)
             : __("Component Qty");
         fields.push({
@@ -717,8 +784,7 @@ class NewChildItemDialogFactory {
             fieldtype: "Float",
             fieldname: "component_qty_per_parent_bom_run",
             reqd: 1,
-            default: 1.0,
-            description: "Quantity needed for one execution of parent BOM"
+            default: 1.0
         });
         if (this.item_type === "NEW_SUB_ASSEMBLY") {
             fields.push({ fieldtype: "Section Break" });
@@ -728,7 +794,7 @@ class NewChildItemDialogFactory {
                 fieldname: "own_batch_size",
                 reqd: 1,
                 default: 1.0,
-                description: "Batch size of this sub-assembly's own BOM"
+                description: "Batch size of this new sub-assembly BOM"
             });
         }
 

@@ -12,17 +12,34 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree 
 )
 
 from erpnext.stock.get_item_details import get_conversion_factor
+from friendly_erp.friendly_erp.util.progress_notifier import (
+    NullProgressNotifier,
+    ConcreteProgressNotifier
+)
+
 
 class TreeToBOMConverter:
-    def __init__(self, bom_tree: BOMTree, company: str):
+    def __init__(self, bom_tree: BOMTree, company: str, notify_progress: bool = True):
         self.tree = bom_tree
         self.company = company
-        self.newly_created_boms: Dict[str, str] = {}  # node_unique_id -> bom_no
+        # node_unique_id -> bom_no
+        self.newly_created_boms: Dict[str, str] = {}
+        self.progress_notifier = ConcreteProgressNotifier(
+        ) if notify_progress else NullProgressNotifier()
 
     def convert(self) -> None:
         """
         Convert BOMTree into ERPNext BOMs using depth-based bottom-up traversal.
         """
+        
+        total_steps = len([
+            node
+            for node in self.tree.node_map.values()
+            if self._is_bom_creation_pending(node)
+        ])
+        self.progress_notifier.init(total_steps, "Creating BOMs")
+
+        completed = 0
         nodes_by_depth = self._group_nodes_by_depth()
         max_depth = max(nodes_by_depth.keys(), default=0)
 
@@ -30,8 +47,12 @@ class TreeToBOMConverter:
         for depth in range(max_depth, -1, -1):
             for node in nodes_by_depth.get(depth, []):
                 if self._is_bom_creation_pending(node):
+                    completed += 1
+                    self.progress_notifier.step(completed, f"Creating BOM for {node.item_code}")
                     self._validate_children_ready(node)
                     self._create_bom_for_node(node)
+
+        self.progress_notifier.done()
 
     def _group_nodes_by_depth(self) -> Dict[int, List[BOMTreeNode]]:
         depth_map: Dict[int, List[BOMTreeNode]] = defaultdict(list)
@@ -46,7 +67,7 @@ class TreeToBOMConverter:
     def _is_bom_creation_pending(self, node: BOMTreeNode) -> bool:
         # If node type is other than Sub-Assembly, skip
         return node.node_type == "SUB_ASSEMBLY" and not getattr(node, "bom_no", None)
-    
+
     def _validate_children_ready(self, node: BOMTreeSubAssemblyNode) -> None:
         """
         Structural validation: all child sub-assemblies must already have BOMs.
@@ -62,7 +83,7 @@ class TreeToBOMConverter:
                 "BOM tree depth inconsistency detected. "
                 f"Sub-assembly BOMs missing for items: {pending_children}"
             )
-    
+
     # -------------------------
     # BOM creation
     # -------------------------
@@ -71,8 +92,9 @@ class TreeToBOMConverter:
         Creates ERPNext BOM and assigns bom_no back to the node.
         """
         if not node.children:
-            frappe.throw(f"Cannot create BOM for '{node.item_code}': No child items or operations found.")
-            
+            frappe.throw(
+                f"Cannot create BOM for '{node.item_code}': No child items or operations found.")
+
         bom = self._create_bom_doc(node)
 
         # Add child items and operations
@@ -100,14 +122,14 @@ class TreeToBOMConverter:
         bom = frappe.new_doc("BOM")
         bom.company = self.company
         bom.item = node.item_code
-        bom.bom_type = "Production"       #TODO: As of now hardcoding
+        bom.bom_type = "Production"  # TODO: As of now hardcoding
         bom.uom = node.uom
         bom.quantity = node.own_batch_size
-        bom.rm_cost_as_per = "Valuation Rate"   #TODO: As of now hardcoding
-        bom.project = None              #TODO: As of now hardcoding
-        bom.currency = "GBP"            #TODO: As of now hardcoding
-        bom.conversion_rate = 1         #TODO: As of now hardcoding
-        bom.buying_price_list = None    #TODO: As of now hardcoding
+        bom.rm_cost_as_per = "Valuation Rate"  # TODO: As of now hardcoding
+        bom.project = None  # TODO: As of now hardcoding
+        bom.currency = "GBP"  # TODO: As of now hardcoding
+        bom.conversion_rate = 1  # TODO: As of now hardcoding
+        bom.buying_price_list = None  # TODO: As of now hardcoding
         return bom
 
     def _create_bom_item(self, child: BOMTreeItemNode | BOMTreeSubAssemblyNode):
