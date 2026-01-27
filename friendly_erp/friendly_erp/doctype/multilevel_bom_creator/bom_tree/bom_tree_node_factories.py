@@ -77,6 +77,7 @@ class BOMCreatorTreeNodeFactory:
             internal_name=item.operation,
             display_name=f"{item.sequence}: {item.operation}{workstation_display_text}",
             time_in_mins=item.time_in_mins,
+            fixed_time=item.fixed_time,
             workstation_type=item.workstation_type,
             workstation=item.workstation,
         )
@@ -131,6 +132,7 @@ class ExistingBOMTreeNodeFactory:
             internal_name=bom_operation.operation,
             display_name=f"{bom_operation.idx}: {bom_operation.operation}{workstation_display_text}",
             time_in_mins=bom_operation.time_in_mins,
+            fixed_time=bom_operation.fixed_time,
             workstation_type=bom_operation.workstation_type,
             workstation=bom_operation.workstation,
         )
@@ -197,6 +199,7 @@ class BOMTreeNodeToCreatorItemConverter:
 
         doc.operation = node.operation
         doc.time_in_mins = node.time_in_mins
+        doc.fixed_time = node.fixed_time
         doc.workstation_type = node.workstation_type
         doc.workstation = node.workstation
         return doc

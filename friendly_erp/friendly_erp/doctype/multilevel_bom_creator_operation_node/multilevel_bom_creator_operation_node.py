@@ -14,6 +14,7 @@ class MultilevelBOMCreatorOperationNode(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		fixed_time: DF.Check
 		node_type: DF.Literal["OPERATION"]
 		node_unique_id: DF.Data | None
 		operation: DF.Link | None
