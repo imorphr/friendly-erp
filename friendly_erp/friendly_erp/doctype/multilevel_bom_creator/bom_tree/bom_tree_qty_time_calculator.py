@@ -68,13 +68,13 @@ class BOMTreeQtyTimeCalculator:
         Child quantity is always calculated relative to the number of times
         the parent BOM is executed.
         """
-        if node.node_type == "ITEM" and isinstance(node, BOMTreeItemNode):
+        if node.node_type == "ITEM":
             self._calculate_qty_for_item_node(node)
-        elif node.node_type == "SUB_ASSEMBLY" and isinstance(node, BOMTreeSubAssemblyNode):
+        elif node.node_type == "SUB_ASSEMBLY":
             self._calculate_qty_for_sub_assembly_node(node)
-        elif node.node_type == "OPERATION" and isinstance(node, BOMTreeOperationNode):
+        elif node.node_type == "OPERATION":
             self._calculate_time_for_operation_node(node)
-        elif node.node_type == "SUB_OPERATION" and isinstance(node, BOMTreeSubOperationNode):
+        elif node.node_type == "SUB_OPERATION":
             self._calculate_time_for_sub_operation_node(node)
 
         for child in (node.children or []):
