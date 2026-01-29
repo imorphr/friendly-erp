@@ -14,6 +14,16 @@
   "column_break_xkaq",
   "company",
   "uom",
+  "section_break_nnrl",
+  "set_rate_of_sub_assembly_item_based_on_bom",
+  "section_break_sjvl",
+  "rm_cost_as_per",
+  "buying_price_list",
+  "price_list_currency",
+  "plc_conversion_rate",
+  "column_break_nevz",
+  "currency",
+  "conversion_rate",
   "section_break_qjdf",
   "description",
   "items_tab",
@@ -118,6 +128,66 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM"
+  },
+  {
+   "fieldname": "section_break_nnrl",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "set_rate_of_sub_assembly_item_based_on_bom",
+   "fieldtype": "Check",
+   "label": "Set rate of sub-assembly item based on BOM"
+  },
+  {
+   "fieldname": "section_break_sjvl",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "Valuation Rate",
+   "fieldname": "rm_cost_as_per",
+   "fieldtype": "Select",
+   "label": "Rate Of Materials Based On",
+   "options": "Valuation Rate\nLast Purchase Rate\nPrice List"
+  },
+  {
+   "fieldname": "column_break_nevz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "default": "1.0",
+   "fieldname": "conversion_rate",
+   "fieldtype": "Float",
+   "label": "Conversion Rate",
+   "precision": "9",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.rm_cost_as_per===\"Price List\"",
+   "fieldname": "buying_price_list",
+   "fieldtype": "Link",
+   "label": "Price List",
+   "options": "Price List"
+  },
+  {
+   "depends_on": "eval:doc.rm_cost_as_per=='Price List'",
+   "fieldname": "price_list_currency",
+   "fieldtype": "Link",
+   "label": "Price List Currency",
+   "options": "Currency"
+  },
+  {
+   "depends_on": "eval:doc.rm_cost_as_per=='Price List'",
+   "fieldname": "plc_conversion_rate",
+   "fieldtype": "Float",
+   "label": "Price List Exchange Rate"
   }
  ],
  "grid_page_length": 50,
@@ -125,7 +195,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-20 12:19:46.312757",
+ "modified": "2026-01-28 07:41:04.014687",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",

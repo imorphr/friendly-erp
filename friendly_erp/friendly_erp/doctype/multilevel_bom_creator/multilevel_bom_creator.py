@@ -5,11 +5,14 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from erpnext.stock.get_item_details import get_conversion_factor
+
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
     BOMTree,
     BOMTreeSubAssemblyNode
 )
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_builders import BOMCreatorTreeBuilder
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_cost_calculator import BOMTreeCostCalculationHelper, BOMTreeCostCalculator
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_node_factories import BOMTreeNodeToCreatorItemConverter
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.tree_to_bom import TreeToBOMConverter
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.multilevel_bom_creator_name_generator import MultilevelBOMCreatorNameGenerator
@@ -29,12 +32,20 @@ class MultilevelBOMCreator(Document):
         from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
         amended_from: DF.Link | None
+        buying_price_list: DF.Link | None
         company: DF.Link
+        conversion_rate: DF.Float
+        currency: DF.Link
         description: DF.LongText | None
         item_code: DF.Link
         item_nodes: DF.Table[MultilevelBOMCreatorItemNode]
         operation_nodes: DF.Table[MultilevelBOMCreatorOperationNode]
+        plc_conversion_rate: DF.Float
+        price_list_currency: DF.Link | None
         qty: DF.Float
+        rm_cost_as_per: DF.Literal["Valuation Rate",
+                                   "Last Purchase Rate", "Price List"]
+        set_rate_of_sub_assembly_item_based_on_bom: DF.Check
         uom: DF.Link | None
     # end: auto-generated types
 
@@ -114,6 +125,35 @@ class MultilevelBOMCreator(Document):
             frappe.throw(
                 "Quantity per parent BOM run must be greater than zero.")
 
+        has_bom = self._has_active_bom(item_code)
+        stock_uom = self._get_stock_uom(item_code)
+        conversion_factor = self._get_conversion_factor_for_uom_to_stock_uom(
+            item_code, uom)
+
+        item: MultilevelBOMCreatorItemNode = frappe.new_doc(
+            "Multilevel BOM Creator Item Node")
+        # Here use shorter unique id as it is going to be stored in db
+        unique_id = frappe.generate_hash(length=10)
+        self.assert_unique_node_id(unique_id)
+        item.node_unique_id = unique_id
+        item.parent_node_unique_id = parent_node_unique_id
+        item.node_type = "ITEM"
+        item.item_code = item_code
+        item.do_not_explode = True if has_bom else False
+        item.component_qty_per_parent_bom_run = component_qty_per_parent_bom_run
+        item.own_batch_size = None  # Leaf items are not boms, so own_batch_size is None
+        item.uom = uom
+        item.stock_uom = stock_uom
+        item.conversion_factor = conversion_factor
+        item.component_stock_qty_per_parent_bom_run = component_qty_per_parent_bom_run * \
+            conversion_factor
+
+        self._update_item_rate_and_amount(item)
+
+        item.sequence = self._get_child_item_node_sequence(
+            parent_node_unique_id)
+        self.append("item_nodes", item)
+
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
@@ -142,24 +182,9 @@ class MultilevelBOMCreator(Document):
                 f"Adding child items is not allowed for this node."
             )
 
-        has_bom = self._has_active_bom(item_code)
-
-        item: MultilevelBOMCreatorItemNode = frappe.new_doc(
-            "Multilevel BOM Creator Item Node")
-        # Here use shorter unique id as it is going to be stored in db
-        unique_id = frappe.generate_hash(length=10)
-        self.assert_unique_node_id(unique_id)
-        item.node_unique_id = unique_id
-        item.parent_node_unique_id = parent_node_unique_id
-        item.node_type = "ITEM"
-        item.item_code = item_code
-        item.do_not_explode = True if has_bom else False
-        item.component_qty_per_parent_bom_run = component_qty_per_parent_bom_run
-        item.own_batch_size = None  # Leaf items are not boms, so own_batch_size is None
-        item.uom = uom
-        item.sequence = self._get_child_item_node_sequence(
-            parent_node_unique_id)
-        self.append("item_nodes", item)
+        cost_calculator = BOMTreeCostCalculator(
+            self, tree, self._get_node_item_map(), fetch_fresh_rate=False)
+        cost_calculator.calculate()
 
     def update_item(self, node_unique_id: str, component_qty_per_parent_bom_run: float, uom: str) -> None:
         self.ensure_draft_status()
@@ -179,8 +204,23 @@ class MultilevelBOMCreator(Document):
         if item.node_type != "ITEM":
             frappe.throw(_("update_item can only be used for ITEM nodes."))
 
+        stock_uom = self._get_stock_uom(item.item_code)
+        conversion_factor = self._get_conversion_factor_for_uom_to_stock_uom(
+            item.item_code, uom)
+
         item.component_qty_per_parent_bom_run = component_qty_per_parent_bom_run
         item.uom = uom
+        item.stock_uom = stock_uom
+        item.conversion_factor = conversion_factor
+        item.component_stock_qty_per_parent_bom_run = component_qty_per_parent_bom_run * \
+            conversion_factor
+
+        self._update_item_rate_and_amount(item)
+
+        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
+        cost_calculator = BOMTreeCostCalculator(
+            self, tree, self._get_node_item_map(), fetch_fresh_rate=False)
+        cost_calculator.calculate()
 
     def add_new_sub_assembly(self, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, own_batch_size: float, uom: str) -> None:
         self._add_sub_assembly_internal(
@@ -211,6 +251,55 @@ class MultilevelBOMCreator(Document):
             frappe.throw(
                 "Own BOM Quantity must be provided for new sub-assembly.")
 
+        bom = None
+        if bom_no:
+            # Existing Sub-Assembly
+            bom = frappe.get_doc("BOM", bom_no)
+            if not bom:
+                frappe.throw(f"Could not find bom {bom.name}")
+            if bom.docstatus != 1:
+                frappe.throw(_("Selected BOM must be submitted"))
+            if not bom.is_active:
+                frappe.throw(_("Selected BOM is not active"))
+            if bom.company != self.company:
+                frappe.throw(_("Selected BOM belongs to a different company"))
+
+        item_code_to_use = bom.item if bom else item_code
+        uom_to_use = bom.uom if bom else uom
+
+        stock_uom = self._get_stock_uom(item_code_to_use)
+        conversion_factor = self._get_conversion_factor_for_uom_to_stock_uom(
+            item_code_to_use, uom_to_use)
+
+        item: MultilevelBOMCreatorItemNode = frappe.new_doc(
+            "Multilevel BOM Creator Item Node")
+        # Here use shorter unique id as it is going to be stored in db
+        unique_id = frappe.generate_hash(length=10)
+        self.assert_unique_node_id(unique_id)
+        item.node_unique_id = unique_id
+        item.parent_node_unique_id = parent_node_unique_id
+        item.node_type = "SUB_ASSEMBLY"
+        item.item_code = item_code_to_use
+        # For new sub-assembly, bom_no is None
+        item.bom_no = bom_no if bom_no else None
+        # For new sub-assembly, is_preexisting_bom is False
+        item.is_preexisting_bom = True if bom_no else False
+        item.do_not_explode = False
+        item.component_qty_per_parent_bom_run = component_qty_per_parent_bom_run
+        # if it is existing bom get own_batch_size from bom else from parameter
+        item.own_batch_size = bom.quantity if bom else own_batch_size
+        item.uom = uom_to_use
+        item.stock_uom = stock_uom
+        item.conversion_factor = conversion_factor
+        item.component_stock_qty_per_parent_bom_run = component_qty_per_parent_bom_run * \
+            conversion_factor
+
+        self._update_item_rate_and_amount(item)
+
+        item.sequence = self._get_child_item_node_sequence(
+            parent_node_unique_id)
+        self.append("item_nodes", item)
+
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
@@ -234,46 +323,14 @@ class MultilevelBOMCreator(Document):
                 f"Adding child items is not allowed for this node."
             )
 
-        bom = None
-        if bom_no:
-            # Existing Sub-Assembly
-            bom = frappe.get_doc("BOM", bom_no)
-            if not bom:
-                frappe.throw(f"Could not find bom {bom.name}")
-            if bom.docstatus != 1:
-                frappe.throw(_("Selected BOM must be submitted"))
-            if not bom.is_active:
-                frappe.throw(_("Selected BOM is not active"))
-            if bom.company != self.company:
-                frappe.throw(_("Selected BOM belongs to a different company"))
-
-        item_code_to_check = bom.item if bom else item_code
-        if tree.item_node_exists_in_upward_path(parent_node_unique_id, item_code_to_check):
+        if tree.item_node_exists_in_upward_path(parent_node_unique_id, item_code_to_use):
             frappe.throw(
-                f"Item '{item_code_to_check}' already exists as a direct or indirect parent. Item can not be child of itself."
+                f"Item '{item_code_to_use}' already exists as a direct or indirect parent. Item can not be child of itself."
             )
 
-        item: MultilevelBOMCreatorItemNode = frappe.new_doc(
-            "Multilevel BOM Creator Item Node")
-        # Here use shorter unique id as it is going to be stored in db
-        unique_id = frappe.generate_hash(length=10)
-        self.assert_unique_node_id(unique_id)
-        item.node_unique_id = unique_id
-        item.parent_node_unique_id = parent_node_unique_id
-        item.node_type = "SUB_ASSEMBLY"
-        item.item_code = bom.item if bom_no else item_code
-        # For new sub-assembly, bom_no is None
-        item.bom_no = bom_no if bom_no else None
-        # For new sub-assembly, is_preexisting_bom is False
-        item.is_preexisting_bom = True if bom_no else False
-        item.do_not_explode = False
-        item.component_qty_per_parent_bom_run = component_qty_per_parent_bom_run
-        # if it is existing bom get own_batch_size from bom else from parameter
-        item.own_batch_size = bom.quantity if bom else own_batch_size
-        item.uom = bom.uom if bom else uom
-        item.sequence = self._get_child_item_node_sequence(
-            parent_node_unique_id)
-        self.append("item_nodes", item)
+        cost_calculator = BOMTreeCostCalculator(
+            self, tree, self._get_node_item_map(), fetch_fresh_rate=False)
+        cost_calculator.calculate()
 
     def _update_sub_assembly_internal(self, node_unique_id: str, component_qty_per_parent_bom_run: float, own_batch_size: float, uom: str) -> None:
         self.ensure_draft_status()
@@ -301,6 +358,22 @@ class MultilevelBOMCreator(Document):
         if not item.is_preexisting_bom:
             item.own_batch_size = own_batch_size
             item.uom = uom
+
+        stock_uom = self._get_stock_uom(item.item_code)
+        conversion_factor = self._get_conversion_factor_for_uom_to_stock_uom(
+            item.item_code, item.uom)
+
+        item.stock_uom = stock_uom
+        item.conversion_factor = conversion_factor
+        item.component_stock_qty_per_parent_bom_run = component_qty_per_parent_bom_run * \
+            conversion_factor
+
+        self._update_item_rate_and_amount(item)
+
+        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
+        cost_calculator = BOMTreeCostCalculator(
+            self, tree, self._get_node_item_map(), fetch_fresh_rate=False)
+        cost_calculator.calculate()
 
     def add_operation(self, parent_node_unique_id: str, operation: str, time_in_mins: float, fixed_time: bool, workstation_type: str, workstation: str) -> None:
         """Add a new operation under the specified parent node."""
@@ -521,12 +594,50 @@ class MultilevelBOMCreator(Document):
         if self.docstatus != 0:
             frappe.throw("Can not change submitted document.")
 
+    def _get_stock_uom(self, item_code: str) -> str:
+        return frappe.get_value(
+            "Item",
+            item_code,
+            "stock_uom"
+        )
+
+    def _get_conversion_factor_for_uom_to_stock_uom(self, item_code: str, uom: str) -> float:
+        return get_conversion_factor(item_code, uom).get("conversion_factor") or 1.0
+
+    def _update_item_rate_and_amount(self, item_node: MultilevelBOMCreatorItemNode) -> None:
+        if item_node.node_type == "ITEM" or (item_node.node_type == "SUB_ASSEMBLY" and item_node.is_preexisting_bom):
+            result = BOMTreeCostCalculationHelper.calculate_item_cost(
+                self,
+                item_node.item_code,
+                item_node.bom_no if item_node.is_preexisting_bom else None,
+                item_node.component_qty_per_parent_bom_run,
+                item_node.uom,
+                item_node.stock_uom,
+                item_node.conversion_factor,
+                False
+            )
+            item_node.rate = result.get("rate") or 0.0
+            item_node.amount = result.get("amount") or 0.0
+            item_node.base_rate = result.get("base_rate") or 0.0
+            item_node.base_amount = result.get("base_amount") or 0.0
+
+    def _get_node_item_map(self) -> dict:
+        node_item_map = {}
+        for item in self.item_nodes:
+            node_item_map[item.node_unique_id] = item
+        for operation in self.operation_nodes:
+            node_item_map[operation.node_unique_id] = operation
+        return node_item_map
+
 
 @frappe.whitelist()
 def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     tree: BOMTree = BOMCreatorTreeBuilder(multilevel_bom_creator).create()
+    cost_calculator = BOMTreeCostCalculator(
+        multilevel_bom_creator, tree, None, fetch_fresh_rate=False)
+    cost_calculator.calculate()
     return tree.to_depth_first_flat_list()
 
 

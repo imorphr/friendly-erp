@@ -12,26 +12,31 @@
   "sequence",
   "section_break_lccd",
   "item_code",
+  "column_break_wwvl",
+  "do_not_explode",
+  "is_preexisting_bom",
+  "bom_no",
   "section_break_eqpg",
   "column_break_pslb",
   "component_qty_per_parent_bom_run",
+  "uom",
   "own_batch_size",
   "column_break_yfyj",
-  "uom",
+  "component_stock_qty_per_parent_bom_run",
+  "stock_uom",
+  "conversion_factor",
+  "section_break_dwko",
+  "rate",
+  "base_rate",
+  "column_break_dlcx",
+  "amount",
+  "base_amount",
   "section_break_xiyz",
   "allow_alternative_item",
   "set_rate_of_sub_assembly_item_based_on_bom",
   "project",
-  "section_break_gkfw",
-  "rm_cost_as_per",
-  "currency",
-  "rate",
-  "cost",
   "section_break_amhj",
-  "do_not_explode",
   "is_stock_item",
-  "bom_no",
-  "is_preexisting_bom",
   "source_warehouse",
   "item_operation",
   "has_variants",
@@ -82,36 +87,11 @@
    "options": "Project"
   },
   {
-   "fieldname": "section_break_gkfw",
-   "fieldtype": "Section Break"
-  },
-  {
-   "default": "Valuation Rate",
-   "fieldname": "rm_cost_as_per",
-   "fieldtype": "Select",
-   "label": "Rate Of Materials Based On",
-   "options": "Valuation Rate\nLast Purchase Rate\nPrice List"
-  },
-  {
-   "fieldname": "currency",
-   "fieldtype": "Link",
-   "label": "Currency",
-   "options": "Currency"
-  },
-  {
    "columns": 1,
    "fieldname": "rate",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Rate"
-  },
-  {
-   "columns": 1,
-   "fieldname": "cost",
-   "fieldtype": "Currency",
-   "in_list_view": 1,
-   "label": "Cost",
-   "options": "currency"
   },
   {
    "columns": 1,
@@ -232,13 +212,56 @@
    "fieldname": "own_batch_size",
    "fieldtype": "Float",
    "label": "Batch Size"
+  },
+  {
+   "fieldname": "section_break_dwko",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "base_rate",
+   "fieldtype": "Currency",
+   "label": "Basic Rate (Company Currency)"
+  },
+  {
+   "fieldname": "column_break_dlcx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount"
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Amount (Company Currency)"
+  },
+  {
+   "fieldname": "column_break_wwvl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "component_stock_qty_per_parent_bom_run",
+   "fieldtype": "Float",
+   "label": "Component Stock Qty"
+  },
+  {
+   "fieldname": "stock_uom",
+   "fieldtype": "Link",
+   "label": "Stock UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "conversion_factor",
+   "fieldtype": "Float",
+   "label": "Conversion Factor"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-22 13:43:59.051550",
+ "modified": "2026-01-28 10:12:37.816976",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Item Node",

@@ -47,7 +47,14 @@ class BOMCreatorTreeNodeFactory:
             component_qty_per_parent_bom_run=item.component_qty_per_parent_bom_run,
             total_required_qty=None, # It should be calculated after tree construction
             uom=item.uom,
-            do_not_explode=item.do_not_explode
+            stock_uom=item.stock_uom,
+            conversion_factor=item.conversion_factor,
+            component_stock_qty_per_parent_bom_run=item.component_stock_qty_per_parent_bom_run,
+            do_not_explode=item.do_not_explode,
+            rate=item.rate,
+            amount=item.amount,
+            base_rate=item.base_rate,
+            base_amount=item.base_amount
         )
 
     @staticmethod
@@ -64,7 +71,14 @@ class BOMCreatorTreeNodeFactory:
             own_batch_size=item.own_batch_size,
             total_required_qty=None, # It should be calculated after tree construction
             uom=item.uom,
-            do_not_explode=item.do_not_explode
+            stock_uom=item.stock_uom,
+            conversion_factor=item.conversion_factor,
+            component_stock_qty_per_parent_bom_run=item.component_stock_qty_per_parent_bom_run,
+            do_not_explode=item.do_not_explode,
+            rate=item.rate,
+            amount=item.amount,
+            base_rate=item.base_rate,
+            base_amount=item.base_amount
         )
 
     @staticmethod

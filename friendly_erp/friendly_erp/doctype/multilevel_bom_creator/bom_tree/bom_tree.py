@@ -94,6 +94,19 @@ class BOMTreeItemNode(BOMTreeNode):
     total_required_qty: float = 0.0
     uom: str = None
 
+    stock_uom: str = None
+    conversion_factor: float = 1.0
+    component_stock_qty_per_parent_bom_run: float = 0.0
+
+    rate: float = 0.0
+    amount: float = 0.0
+    base_rate: float = 0.0
+    base_amount: float = 0.0
+    # Root-relative cost (derived):Total cost of this node required to produce
+    # the configured BOM quantity of the ROOT node.
+    total_required_amount: float = 0.0
+
+
 
 @dataclass
 class BOMTreeSubAssemblyNode(BOMTreeItemNode):

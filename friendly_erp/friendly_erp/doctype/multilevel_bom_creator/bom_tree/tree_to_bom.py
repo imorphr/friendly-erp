@@ -133,22 +133,13 @@ class TreeToBOMConverter:
         return bom
 
     def _create_bom_item(self, child: BOMTreeItemNode | BOMTreeSubAssemblyNode):
-        stock_uom = frappe.get_value(
-            "Item",
-            child.item_code,
-            "stock_uom",
-        )
-        conversion_factor = get_conversion_factor(
-            child.item_code,
-            child.uom,
-        ).get("conversion_factor") or 1.0
         bom_item = frappe.new_doc("BOM Item")
         bom_item.item_code = child.item_code
         bom_item.qty = child.component_qty_per_parent_bom_run
         bom_item.uom = child.uom
-        bom_item.stock_uom = stock_uom
-        bom_item.conversion_factor = conversion_factor
-        bom_item.stock_qty = child.component_qty_per_parent_bom_run * conversion_factor
+        bom_item.stock_uom = child.stock_uom
+        bom_item.conversion_factor = child.conversion_factor
+        bom_item.stock_qty = child.component_stock_qty_per_parent_bom_run
         bom_item.rate = 1                       # TODO: As of now hardcoding
         bom_item.do_not_explode = child.do_not_explode
         bom_item.source_warehouse = None        # TODO: As of now hardcoding

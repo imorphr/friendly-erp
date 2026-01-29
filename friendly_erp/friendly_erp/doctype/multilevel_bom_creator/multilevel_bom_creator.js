@@ -717,6 +717,7 @@ class NewFormDialogFactory {
     }
 
     create() {
+        const self = this;
         const dialog = new frappe.ui.Dialog({
             title: __("Multilevel BOM Creator"),
             fields: [
@@ -743,6 +744,19 @@ class NewFormDialogFactory {
                         });
                     },
                 },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Company"),
+                    fieldtype: "Link",
+                    fieldname: "company",
+                    options: "Company",
+                    reqd: 1,
+                    default: frappe.defaults.get_user_default("Company"),
+                    onchange: () => {
+                        self.set_currency(dialog);
+                    }
+                },
+                { fieldtype: "Section Break" },
                 {
                     label: __("UOM"),
                     fieldtype: "Link",
@@ -752,19 +766,28 @@ class NewFormDialogFactory {
                 },
                 { fieldtype: "Column Break" },
                 {
-                    label: __("Company"),
-                    fieldtype: "Link",
-                    fieldname: "company",
-                    options: "Company",
-                    reqd: 1,
-                    default: frappe.defaults.get_user_default("Company"),
-                },
-                {
                     label: __("Quantity"),
                     fieldtype: "Float",
                     fieldname: "qty",
                     reqd: 1,
                     default: 1.0,
+                },
+                { fieldtype: "Section Break" },
+                {
+                    label: __("Currency"),
+                    fieldtype: "Link",
+                    fieldname: "currency",
+                    options: "Currency",
+                    reqd: 1,
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Conversion Rate"),
+                    fieldtype: "Float",
+                    fieldname: "conversion_rate",
+                    reqd: 1,
+                    default: 1,
+                    precision: 9
                 },
             ],
             primary_action_label: __("Create"),
@@ -774,7 +797,23 @@ class NewFormDialogFactory {
         });
 
         dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
+        self.set_currency(dialog);
         return dialog;
+    }
+
+    set_currency(dialog) {
+        const company = dialog.get_value("company");
+        if (!company) return;
+
+        frappe.db.get_value(
+            "Company",
+            company,
+            "default_currency"
+        ).then(r => {
+            if (r?.message?.default_currency) {
+                dialog.set_value("currency", r.message.default_currency);
+            }
+        });
     }
 }
 

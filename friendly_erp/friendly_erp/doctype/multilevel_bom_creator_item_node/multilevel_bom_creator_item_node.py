@@ -15,10 +15,13 @@ class MultilevelBOMCreatorItemNode(Document):
 		from frappe.types import DF
 
 		allow_alternative_item: DF.Check
+		amount: DF.Currency
+		base_amount: DF.Currency
+		base_rate: DF.Currency
 		bom_no: DF.Link | None
 		component_qty_per_parent_bom_run: DF.Float
-		cost: DF.Currency
-		currency: DF.Link | None
+		component_stock_qty_per_parent_bom_run: DF.Float
+		conversion_factor: DF.Float
 		do_not_explode: DF.Check
 		has_variants: DF.Check
 		include_item_in_manufacturing: DF.Check
@@ -36,11 +39,11 @@ class MultilevelBOMCreatorItemNode(Document):
 		parenttype: DF.Data
 		project: DF.Link | None
 		rate: DF.Float
-		rm_cost_as_per: DF.Literal["Valuation Rate", "Last Purchase Rate", "Price List"]
 		sequence: DF.Int
 		set_rate_of_sub_assembly_item_based_on_bom: DF.Check
 		source_warehouse: DF.Link | None
 		sourced_by_supplier: DF.Check
+		stock_uom: DF.Link | None
 		uom: DF.Link | None
 	# end: auto-generated types
 	pass
