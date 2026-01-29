@@ -58,7 +58,6 @@ class BOMCreatorTreeBuilder:
             frappe.throw("Tree is already built.")
         self.tree = BOMTree()
         self._build_tree()
-        BOMTreeQtyTimeCalculator(self.tree).calculate()
         return self.tree
 
     def _build_tree(self):

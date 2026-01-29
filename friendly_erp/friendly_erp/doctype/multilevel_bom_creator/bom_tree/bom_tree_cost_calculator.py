@@ -17,13 +17,16 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilev
 class BOMTreeCostCalculator:
     """
     Calculates cost for BOMTree nodes using bottom-up traversal.
+
+    fetch_fresh_rate_for_node_ids: set of node_unique_ids for which fresh rates
+    should be fetched. If it contains '*', fresh rates will be fetched for all item nodes
     """
 
-    def __init__(self, bom, bom_tree: BOMTree, item_map_to_update: Dict[str, MultilevelBOMCreatorItemNode], fetch_fresh_rate: bool = False):
+    def __init__(self, bom, bom_tree: BOMTree, item_map_to_update: Dict[str, MultilevelBOMCreatorItemNode], fetch_fresh_rate_for_node_ids: set):
         self.bom = bom
         self.bom_tree = bom_tree
         self.item_map_to_update = item_map_to_update
-        self.fetch_fresh_rate = fetch_fresh_rate
+        self.fetch_fresh_rate_for_node_ids = fetch_fresh_rate_for_node_ids or set()
 
     def calculate(self):
         self._calculate_recursively(self.bom_tree.root)
@@ -40,7 +43,7 @@ class BOMTreeCostCalculator:
         self.update_item_map(node)
 
     def _calculate_item_node_cost(self, node: BOMTreeItemNode):
-        if self.fetch_fresh_rate:
+        if node.node_unique_id in self.fetch_fresh_rate_for_node_ids or '*' in self.fetch_fresh_rate_for_node_ids:
             result = BOMTreeCostCalculationHelper.calculate_item_cost(
                 bom=self.bom,
                 item_code=node.item_code,
@@ -92,6 +95,7 @@ class BOMTreeCostCalculator:
                 item_node.amount = node.amount
                 item_node.base_rate = node.base_rate
                 item_node.base_amount = node.base_amount
+                item_node.total_required_amount = node.total_required_amount
 
 
 class BOMTreeCostCalculationHelper:

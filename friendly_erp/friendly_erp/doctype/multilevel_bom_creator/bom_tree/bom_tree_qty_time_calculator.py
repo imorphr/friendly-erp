@@ -44,9 +44,10 @@ class BOMTreeQtyTimeCalculator:
     - component_qty_per_parent_bom_run = own_batch_size
     """
 
-    def __init__(self, bom_tree: BOMTree):
+    def __init__(self, bom_tree: BOMTree, item_map_to_update):
         self.bom_tree = bom_tree
         self.root_node: BOMTreeSubAssemblyNode = bom_tree.root
+        self.item_map_to_update = item_map_to_update
         self.PRECISION = 6
 
     def calculate(self):
@@ -56,6 +57,7 @@ class BOMTreeQtyTimeCalculator:
         self.root_node.component_qty_per_parent_bom_run = self.root_node.own_batch_size
         self.root_node.total_required_qty = self.root_node.own_batch_size
         self.root_node.bom_run_count = 1
+        self.update_item_map(self.root_node)
 
         # Start recursion from children, not root
         for child in (self.root_node.children or []):
@@ -76,6 +78,8 @@ class BOMTreeQtyTimeCalculator:
             self._calculate_time_for_operation_node(node)
         elif node.node_type == "SUB_OPERATION":
             self._calculate_time_for_sub_operation_node(node)
+
+        self.update_item_map(node)
 
         for child in (node.children or []):
             self._calculate_recursively(child)
@@ -131,3 +135,15 @@ class BOMTreeQtyTimeCalculator:
                     parent_sub_assembly_node.bom_run_count)
                 node.total_required_time_in_mins = flt(
                     parent_bom_run_count * node.time_in_mins, self.PRECISION)
+
+    def update_item_map(self, node: BOMTreeNode):
+        if self.item_map_to_update and node.node_type in ["ITEM", "SUB_ASSEMBLY"]:
+            item_node = self.item_map_to_update.get(node.node_unique_id)
+            if item_node:
+               item_node.bom_run_count = node.bom_run_count if item_node.node_type == "SUB_ASSEMBLY" else None
+               item_node.total_required_qty = node.total_required_qty
+        elif node.node_type in ["OPERATION", "SUB_OPERATION"]:
+            operation_node = self.item_map_to_update.get(node.node_unique_id)
+            if operation_node:
+                operation_node.total_required_time_in_mins = node.total_required_time_in_mins
+

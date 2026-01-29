@@ -45,7 +45,7 @@ class BOMCreatorTreeNodeFactory:
             internal_name=item.item_code,
             display_name=f"{item.sequence}: {item.item_code}",
             component_qty_per_parent_bom_run=item.component_qty_per_parent_bom_run,
-            total_required_qty=None, # It should be calculated after tree construction
+            total_required_qty=item.total_required_qty,
             uom=item.uom,
             stock_uom=item.stock_uom,
             conversion_factor=item.conversion_factor,
@@ -54,7 +54,8 @@ class BOMCreatorTreeNodeFactory:
             rate=item.rate,
             amount=item.amount,
             base_rate=item.base_rate,
-            base_amount=item.base_amount
+            base_amount=item.base_amount,
+            total_required_amount=item.total_required_amount
         )
 
     @staticmethod
@@ -69,7 +70,8 @@ class BOMCreatorTreeNodeFactory:
             display_name=display_name,
             component_qty_per_parent_bom_run=item.component_qty_per_parent_bom_run,
             own_batch_size=item.own_batch_size,
-            total_required_qty=None, # It should be calculated after tree construction
+            bom_run_count=item.bom_run_count,
+            total_required_qty=item.total_required_qty,
             uom=item.uom,
             stock_uom=item.stock_uom,
             conversion_factor=item.conversion_factor,
@@ -78,7 +80,8 @@ class BOMCreatorTreeNodeFactory:
             rate=item.rate,
             amount=item.amount,
             base_rate=item.base_rate,
-            base_amount=item.base_amount
+            base_amount=item.base_amount,
+            total_required_amount=item.total_required_amount
         )
 
     @staticmethod
@@ -91,6 +94,7 @@ class BOMCreatorTreeNodeFactory:
             internal_name=item.operation,
             display_name=f"{item.sequence}: {item.operation}{workstation_display_text}",
             time_in_mins=item.time_in_mins,
+            total_required_time_in_mins=item.total_required_time_in_mins,
             fixed_time=item.fixed_time,
             workstation_type=item.workstation_type,
             workstation=item.workstation,

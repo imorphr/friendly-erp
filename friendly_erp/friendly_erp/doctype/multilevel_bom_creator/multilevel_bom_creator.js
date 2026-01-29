@@ -440,6 +440,21 @@ class BOMTreeHelper {
                 width: 130
             },
             {
+                name: "Rate",
+                id: "rate",
+                width: 130
+            },
+            {
+                name: "Amount",
+                id: "amount",
+                width: 130
+            },
+            {
+                name: "Total Amount",
+                id: "total_required_amount",
+                width: 130
+            },
+            {
                 name: "",
                 id: "action",
                 width: 40,

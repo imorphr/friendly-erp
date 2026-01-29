@@ -24,6 +24,7 @@ class MultilevelBOMCreatorOperationNode(Document):
 		parenttype: DF.Data
 		sequence: DF.Int
 		time_in_mins: DF.Float
+		total_required_time_in_mins: DF.Float
 		workstation: DF.Link | None
 		workstation_type: DF.Link | None
 	# end: auto-generated types

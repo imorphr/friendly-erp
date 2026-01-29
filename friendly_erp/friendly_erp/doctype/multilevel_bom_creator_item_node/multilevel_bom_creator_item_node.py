@@ -19,6 +19,7 @@ class MultilevelBOMCreatorItemNode(Document):
 		base_amount: DF.Currency
 		base_rate: DF.Currency
 		bom_no: DF.Link | None
+		bom_run_count: DF.Float
 		component_qty_per_parent_bom_run: DF.Float
 		component_stock_qty_per_parent_bom_run: DF.Float
 		conversion_factor: DF.Float
@@ -44,6 +45,8 @@ class MultilevelBOMCreatorItemNode(Document):
 		source_warehouse: DF.Link | None
 		sourced_by_supplier: DF.Check
 		stock_uom: DF.Link | None
+		total_required_amount: DF.Float
+		total_required_qty: DF.Float
 		uom: DF.Link | None
 	# end: auto-generated types
 	pass

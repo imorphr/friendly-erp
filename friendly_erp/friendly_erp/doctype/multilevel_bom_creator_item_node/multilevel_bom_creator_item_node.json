@@ -21,6 +21,8 @@
   "component_qty_per_parent_bom_run",
   "uom",
   "own_batch_size",
+  "total_required_qty",
+  "bom_run_count",
   "column_break_yfyj",
   "component_stock_qty_per_parent_bom_run",
   "stock_uom",
@@ -31,6 +33,7 @@
   "column_break_dlcx",
   "amount",
   "base_amount",
+  "total_required_amount",
   "section_break_xiyz",
   "allow_alternative_item",
   "set_rate_of_sub_assembly_item_based_on_bom",
@@ -255,13 +258,32 @@
    "fieldname": "conversion_factor",
    "fieldtype": "Float",
    "label": "Conversion Factor"
+  },
+  {
+   "description": "Total quantity of this item required to produce the configured BOM quantity of the ROOT node.",
+   "fieldname": "total_required_qty",
+   "fieldtype": "Float",
+   "label": "Total Required Qty"
+  },
+  {
+   "depends_on": "eval:doc.node_type==\"SUB_ASSEMBLY\";",
+   "description": "Number of times this sub-assembly BOM must be executed in order to satisfy Total Required Qty",
+   "fieldname": "bom_run_count",
+   "fieldtype": "Float",
+   "label": "BOM Run Count"
+  },
+  {
+   "description": "Total cost of this node required to produce the configured BOM quantity of the ROOT node.",
+   "fieldname": "total_required_amount",
+   "fieldtype": "Float",
+   "label": "Total Required Amount"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-28 10:12:37.816976",
+ "modified": "2026-01-29 10:37:45.504681",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Item Node",
