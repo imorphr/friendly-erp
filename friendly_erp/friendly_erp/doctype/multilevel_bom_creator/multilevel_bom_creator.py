@@ -115,11 +115,11 @@ class MultilevelBOMCreator(Document):
         item.item_code = self.item_code
         item.component_qty_per_parent_bom_run = self.qty or 1.0
         item.own_batch_size = self.qty or 1.0
+        item.total_required_qty = self.qty or 1.0
+        item.bom_run_count = 1 # For root node bom run count is 1
         item.uom = self.uom
         item.sequence = 1
         self.append("item_nodes", item)
-
-        self.update_quantity_time_and_cost(None, {unique_id})
 
     def add_item(self, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, uom: str) -> None:
         """Add a new item under the specified parent node."""
@@ -214,7 +214,8 @@ class MultilevelBOMCreator(Document):
         item.component_stock_qty_per_parent_bom_run = component_qty_per_parent_bom_run * \
             conversion_factor
 
-        self.update_quantity_time_and_cost(None, {item.node_unique_id})
+        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
+        self.update_quantity_time_and_cost(tree, {item.node_unique_id})
 
     def add_new_sub_assembly(self, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, own_batch_size: float, uom: str) -> None:
         self._add_sub_assembly_internal(
@@ -257,6 +258,8 @@ class MultilevelBOMCreator(Document):
                 frappe.throw(_("Selected BOM is not active"))
             if bom.company != self.company:
                 frappe.throw(_("Selected BOM belongs to a different company"))
+            if bom.currency != self.currency:
+                frappe.throw(_("Selected BOM currency does not match Multilevel BOM Creator currency"))
 
         item_code_to_use = bom.item if bom else item_code
         uom_to_use = bom.uom if bom else uom
@@ -358,7 +361,8 @@ class MultilevelBOMCreator(Document):
         item.component_stock_qty_per_parent_bom_run = component_qty_per_parent_bom_run * \
             conversion_factor
 
-        self.update_quantity_time_and_cost(None, {item.node_unique_id})
+        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
+        self.update_quantity_time_and_cost(tree, {item.node_unique_id})
 
     def add_operation(self, parent_node_unique_id: str, operation: str, time_in_mins: float, fixed_time: bool, workstation_type: str, workstation: str) -> None:
         """Add a new operation under the specified parent node."""
@@ -430,7 +434,8 @@ class MultilevelBOMCreator(Document):
         operation_doc.workstation_type = workstation_type
         operation_doc.workstation = workstation if not workstation_type else None
 
-        self.update_quantity_time_and_cost(None, {operation_doc.node_unique_id})
+        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
+        self.update_quantity_time_and_cost(tree, {operation_doc.node_unique_id})
 
     def duplicate_bom_structure(self, node_unique_id: str) -> None:
         self.ensure_draft_status()
@@ -526,7 +531,8 @@ class MultilevelBOMCreator(Document):
             if row.node_unique_id not in node_ids_to_delete
         ]
 
-        self.update_quantity_time_and_cost(tree, None)
+        updated_tree = BOMCreatorTreeBuilder(self).create()
+        self.update_quantity_time_and_cost(updated_tree, None)
 
     def create_boms(self) -> dict[str, str]:
         """
@@ -539,7 +545,7 @@ class MultilevelBOMCreator(Document):
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
 
         # 2. Convert tree → BOMs
-        converter = TreeToBOMConverter(tree, self.company)
+        converter = TreeToBOMConverter(tree, self)
         converter.convert()
 
         # 3. Persist bom_no back to child table
@@ -604,22 +610,16 @@ class MultilevelBOMCreator(Document):
         return node_item_map
     
     def update_quantity_time_and_cost(self, tree: BOMTree, fetch_fresh_rate_for_node_ids: set) -> None:
-        if not tree:
-            tree = BOMCreatorTreeBuilder(self).create()
         self._update_qty_and_time(tree)
         self._update_cost(tree, fetch_fresh_rate_for_node_ids)
 
     def _update_qty_and_time(self, tree: BOMTree) -> None:
-        if not tree:
-            tree = BOMCreatorTreeBuilder(self).create()
-        qty_time_calculator = BOMTreeQtyTimeCalculator(tree, self._get_node_item_map())
+        qty_time_calculator = BOMTreeQtyTimeCalculator(tree.root, self._get_node_item_map())
         qty_time_calculator.calculate()
 
     def _update_cost(self, tree: BOMTree, fetch_fresh_rate_for_node_ids: set) -> None:
-        if not tree:
-            tree = BOMCreatorTreeBuilder(self).create()
         cost_calculator = BOMTreeCostCalculator(
-            self, tree, self._get_node_item_map(), fetch_fresh_rate_for_node_ids)
+            self, tree.root, self._get_node_item_map(), fetch_fresh_rate_for_node_ids)
         cost_calculator.calculate()
 
 
@@ -627,7 +627,7 @@ class MultilevelBOMCreator(Document):
 def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
-    tree: BOMTree = BOMCreatorTreeBuilder(multilevel_bom_creator).create()
+    tree: BOMTree = BOMCreatorTreeBuilder(multilevel_bom_creator, True).create()
     return tree.to_depth_first_flat_list()
 
 

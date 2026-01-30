@@ -19,9 +19,9 @@ from friendly_erp.friendly_erp.util.progress_notifier import (
 
 
 class TreeToBOMConverter:
-    def __init__(self, bom_tree: BOMTree, company: str, notify_progress: bool = True):
+    def __init__(self, bom_tree: BOMTree, bom_creator, notify_progress: bool = True):
         self.tree = bom_tree
-        self.company = company
+        self.bom_creator = bom_creator
         # node_unique_id -> bom_no
         self.newly_created_boms: Dict[str, str] = {}
         self.progress_notifier = ConcreteProgressNotifier(
@@ -120,16 +120,16 @@ class TreeToBOMConverter:
 
     def _create_bom_doc(self, node: BOMTreeSubAssemblyNode):
         bom = frappe.new_doc("BOM")
-        bom.company = self.company
+        bom.company = self.bom_creator.company
         bom.item = node.item_code
         bom.bom_type = "Production"  # TODO: As of now hardcoding
         bom.uom = node.uom
         bom.quantity = node.own_batch_size
-        bom.rm_cost_as_per = "Valuation Rate"  # TODO: As of now hardcoding
-        bom.project = None  # TODO: As of now hardcoding
-        bom.currency = "GBP"  # TODO: As of now hardcoding
-        bom.conversion_rate = 1  # TODO: As of now hardcoding
-        bom.buying_price_list = None  # TODO: As of now hardcoding
+        bom.rm_cost_as_per = self.bom_creator.rm_cost_as_per
+        bom.project = None  # As of now no project linkage
+        bom.currency = self.bom_creator.currency
+        bom.conversion_rate = self.bom_creator.conversion_rate
+        bom.buying_price_list = self.bom_creator.buying_price_list
         return bom
 
     def _create_bom_item(self, child: BOMTreeItemNode | BOMTreeSubAssemblyNode):
@@ -140,7 +140,7 @@ class TreeToBOMConverter:
         bom_item.stock_uom = child.stock_uom
         bom_item.conversion_factor = child.conversion_factor
         bom_item.stock_qty = child.component_stock_qty_per_parent_bom_run
-        bom_item.rate = 1                       # TODO: As of now hardcoding
+        # bom_item.rate = 1                       # TODO: As of now hardcoding
         bom_item.do_not_explode = child.do_not_explode
         bom_item.source_warehouse = None        # TODO: As of now hardcoding
         bom_item.allow_alternative_item = 0     # TODO: As of now hardcoding

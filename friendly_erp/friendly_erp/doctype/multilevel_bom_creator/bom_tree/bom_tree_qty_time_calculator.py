@@ -44,20 +44,17 @@ class BOMTreeQtyTimeCalculator:
     - component_qty_per_parent_bom_run = own_batch_size
     """
 
-    def __init__(self, bom_tree: BOMTree, item_map_to_update):
-        self.bom_tree = bom_tree
-        self.root_node: BOMTreeSubAssemblyNode = bom_tree.root
+    def __init__(self, root_node: BOMTreeSubAssemblyNode, item_map_to_update):
+        self.root_node: BOMTreeSubAssemblyNode = root_node
         self.item_map_to_update = item_map_to_update
         self.PRECISION = 6
 
     def calculate(self):
         """
         Entry point to calculate quantities for the entire tree.
+        Expectation: For root node bom_run_count, component_qty_per_parent_bom_run
+        and total_required_qty should be present.
         """
-        self.root_node.component_qty_per_parent_bom_run = self.root_node.own_batch_size
-        self.root_node.total_required_qty = self.root_node.own_batch_size
-        self.root_node.bom_run_count = 1
-        self.update_item_map(self.root_node)
 
         # Start recursion from children, not root
         for child in (self.root_node.children or []):

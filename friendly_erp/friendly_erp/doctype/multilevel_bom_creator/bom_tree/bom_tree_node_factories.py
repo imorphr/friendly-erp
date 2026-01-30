@@ -103,7 +103,7 @@ class BOMCreatorTreeNodeFactory:
 
 class ExistingBOMTreeNodeFactory:
     @staticmethod
-    def create_from_bom(bom, sequence: int, tree_ref) -> BOMTreeSubAssemblyNode:
+    def create_from_bom(bom, sequence: int, tree_ref, overridden_qty=None) -> BOMTreeSubAssemblyNode:
         display_name = f"{sequence}: {bom.item} [{bom.name}]"
         return BOMTreeSubAssemblyNode(
             node_type="SUB_ASSEMBLY",
@@ -115,10 +115,14 @@ class ExistingBOMTreeNodeFactory:
             is_preexisting_bom=True,
             internal_name=bom.item,
             display_name=display_name,
-            component_qty_per_parent_bom_run=bom.quantity,
+            component_qty_per_parent_bom_run=overridden_qty if overridden_qty else bom.quantity,
             own_batch_size=bom.quantity,
             total_required_qty=None, # It should be calculated after tree construction
             uom=bom.uom,
+            rate=bom.total_cost/bom.quantity,
+            amount=bom.total_cost,
+            base_rate=bom.base_total_cost/bom.quantity,
+            base_amount=bom.base_total_cost
         )
 
     @staticmethod
@@ -135,6 +139,10 @@ class ExistingBOMTreeNodeFactory:
             component_qty_per_parent_bom_run=bom_item.qty,
             total_required_qty=None, # It should be calculated after tree construction
             uom=bom_item.uom,
+            rate=bom_item.rate,
+            amount=bom_item.amount,
+            base_rate=bom_item.base_rate,
+            base_amount=bom_item.base_amount
         )
 
     @staticmethod
