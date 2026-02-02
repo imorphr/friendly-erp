@@ -123,7 +123,7 @@ class TreeToBOMConverter:
         bom.company = self.bom_creator.company
         bom.item = node.item_code
         bom.bom_type = "Production"  # TODO: As of now hardcoding
-        bom.uom = node.uom
+        bom.uom = node.stock_uom    # BOM uom is always stock_uom of the item
         bom.quantity = node.own_batch_size
         bom.rm_cost_as_per = self.bom_creator.rm_cost_as_per
         bom.project = None  # As of now no project linkage

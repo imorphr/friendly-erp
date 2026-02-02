@@ -294,7 +294,8 @@ function add_existing_sub_assembly(frm, parent, values) {
             multilevel_bom_creator_name: frm.doc.name,
             parent_node_unique_id: parent.node_unique_id,
             bom_no: values.bom_no,
-            component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run
+            component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
+            uom: values.uom
         },
         freeze: true,
         freeze_message: __("Adding existing Sub-assembly..."),
@@ -417,7 +418,13 @@ class BOMTreeHelper {
             {
                 name: "Batch Size",
                 id: "own_batch_size",
-                width: 110
+                width: 110,
+                format: function (value, row, column, data) {
+                    if (!value) return "";
+
+                    const batch_size = data.uom !== data.stock_uom ? `${value} (${data.stock_uom})` : value;
+                    return batch_size;
+                }
             },
             {
                 name: "Component Qty",
@@ -777,7 +784,7 @@ class NewFormDialogFactory {
                     fieldtype: "Link",
                     fieldname: "uom",
                     options: "UOM",
-                    reqd: 1,
+                    read_only: 1
                 },
                 { fieldtype: "Column Break" },
                 {
@@ -869,11 +876,10 @@ class NewChildItemDialogFactory {
             fieldtype: "Link",
             fieldname: "uom",
             options: "UOM",
-            reqd: 1,
-            read_only: this.item_type === "EXISTING_SUB_ASSEMBLY" ? 1 : 0
+            reqd: 1
         });
         const component_qty_label = this.parent_node
-            ? __(`Component Qty Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.uom}) of ${this.parent_node.item_code}`)
+            ? __(`Component Qty Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.stock_uom}) of ${this.parent_node.item_code}`)
             : __("Component Qty");
         fields.push({
             label: component_qty_label,
@@ -882,15 +888,25 @@ class NewChildItemDialogFactory {
             reqd: 1,
             default: 1.0
         });
-        if (this.item_type === "NEW_SUB_ASSEMBLY") {
+        if (this.item_type === "NEW_SUB_ASSEMBLY" || this.item_type === "EXISTING_SUB_ASSEMBLY") {
             fields.push({ fieldtype: "Section Break" });
             fields.push({
-                label: __("Batch Size"),
+                label: __("Batch Size UOM"),
+                fieldtype: "Link",
+                fieldname: "stock_uom",
+                options: "UOM",
+                read_only: 1
+            });
+            const batch_size_label = this.item_type === "NEW_SUB_ASSEMBLY"
+                ? __("Batch Size of this new sub-assembly BOM")
+                : __("Batch Size");
+            fields.push({
+                label: batch_size_label,
                 fieldtype: "Float",
                 fieldname: "own_batch_size",
                 reqd: 1,
                 default: 1.0,
-                description: "Batch size of this new sub-assembly BOM"
+                read_only: this.item_type === "EXISTING_SUB_ASSEMBLY" ? 1 : 0
             });
         }
 
@@ -905,11 +921,11 @@ class NewChildItemDialogFactory {
 
         if (fields.some(f => f.fieldname === "item_code")) {
             dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
-            dialog.fields_dict.item_code.df.onchange = () => this.on_item_change(dialog);
+            dialog.fields_dict.item_code.df.onchange = () => self.on_item_change(dialog);
         }
 
         if (this.item_type === "EXISTING_SUB_ASSEMBLY") {
-            dialog.fields_dict.bom_no.df.onchange = () => this.on_bom_change(dialog);
+            dialog.fields_dict.bom_no.df.onchange = () => self.on_bom_change(dialog);
         }
         return dialog;
     }
@@ -922,16 +938,18 @@ class NewChildItemDialogFactory {
         }
 
         dialog.set_value("component_qty_per_parent_bom_run", ctx.component_qty_per_parent_bom_run);
-        if (this.item_type !== "EXISTING_SUB_ASSEMBLY") {
-            dialog.set_value("uom", ctx.uom);
-        }
+        dialog.set_value("uom", ctx.uom);
 
-        if (this.item_type === "NEW_SUB_ASSEMBLY") {
+        if (this.item_type === "EXISTING_SUB_ASSEMBLY" || this.item_type === "NEW_SUB_ASSEMBLY") {
+            dialog.set_value("stock_uom", ctx.stock_uom);
             dialog.set_value("own_batch_size", ctx.own_batch_size);
         }
     }
 
     on_item_change(dialog) {
+        if (this.mode === "EDIT") {
+            return;
+        }
         const item_code = dialog.get_value("item_code");
         if (!item_code) {
             return;
@@ -943,11 +961,15 @@ class NewChildItemDialogFactory {
         ).then((r) => {
             if (r && r.message && r.message.stock_uom) {
                 dialog.set_value("uom", r.message.stock_uom);
+                dialog.set_value("stock_uom", r.message.stock_uom);
             }
         });
     }
 
     on_bom_change(dialog) {
+        if (this.mode === "EDIT") {
+            return;
+        }
         const bom_no = dialog.get_value("bom_no");
         if (!bom_no) {
             return;
@@ -955,10 +977,12 @@ class NewChildItemDialogFactory {
         frappe.db.get_value(
             "BOM",
             bom_no,
-            "uom"
+            ["uom", "quantity"]
         ).then((r) => {
             if (r && r.message && r.message.uom) {
                 dialog.set_value("uom", r.message.uom);
+                dialog.set_value("stock_uom", r.message.uom);
+                dialog.set_value("own_batch_size", r.message.quantity);
             }
         });
     }

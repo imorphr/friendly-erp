@@ -93,7 +93,8 @@ class BOMTreeQtyTimeCalculator:
 
     def _calculate_qty_for_sub_assembly_node(self, node: BOMTreeSubAssemblyNode):
         self._calculate_qty_for_item_node(node)
-        node.bom_run_count = node.total_required_qty / node.own_batch_size
+        own_batch_size_in_reuired_uom = node.own_batch_size / node.conversion_factor
+        node.bom_run_count = node.total_required_qty / own_batch_size_in_reuired_uom
 
     def _calculate_time_for_operation_node(self, node: BOMTreeOperationNode):
         if node.fixed_time:

@@ -89,7 +89,7 @@ class BOMTreeCostCalculator:
                     total_amount += child.amount or 0.0
                     total_base_amount += child.base_amount or 0.0
 
-            node.rate = total_amount
+            node.rate = flt((total_amount / node.own_batch_size) * (node.conversion_factor or 1.0))
             node.amount = node.rate * node.component_qty_per_parent_bom_run
             node.base_rate = total_base_amount
             node.base_amount = node.base_rate * node.component_qty_per_parent_bom_run
