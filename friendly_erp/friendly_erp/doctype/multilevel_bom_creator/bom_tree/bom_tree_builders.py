@@ -190,13 +190,13 @@ class ExistingBOMTreeBuilder:
         self._traverse_bom(self.bom_no, None, 0, None)
         return self.tree
 
-    def _traverse_bom(self, bom_no: str, parent_node: BOMTreeNode, sequence: int, overridden_qty):
+    def _traverse_bom(self, bom_no: str, parent_node: BOMTreeNode, sequence: int, bom_item):
         bom = frappe.get_doc("BOM", bom_no)
         if not bom:
             frappe.throw(f"BOM '{bom_no}' not found.")
 
         node = ExistingBOMTreeNodeFactory.create_from_bom(
-            bom, sequence, self.tree, overridden_qty)
+            bom, sequence, self.tree, bom_item)
         if not parent_node:
             self.tree.set_root(node)
         else:
@@ -229,7 +229,7 @@ class ExistingBOMTreeBuilder:
             should_not_explode = self._should_not_explode(bom_item)
             child_node = None
             if is_sub_assembly and not should_not_explode:
-                self._traverse_bom(bom_item.bom_no, parent_node, bom_item.idx, bom_item.qty)
+                self._traverse_bom(bom_item.bom_no, parent_node, bom_item.idx, bom_item)
             else:
                 child_node = ExistingBOMTreeNodeFactory.create_from_item(
                     bom_item, bom_item.idx, self.tree)

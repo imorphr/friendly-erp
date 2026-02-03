@@ -736,6 +736,7 @@ class NewFormDialogFactory {
     constructor(frm, action) {
         this.frm = frm;
         this.action = action;
+        this.company_currency = null;
     }
 
     create() {
@@ -774,9 +775,7 @@ class NewFormDialogFactory {
                     options: "Company",
                     reqd: 1,
                     default: frappe.defaults.get_user_default("Company"),
-                    onchange: () => {
-                        self.set_currency(dialog);
-                    }
+                    onchange: () => self.set_currency(dialog)
                 },
                 { fieldtype: "Section Break" },
                 {
@@ -801,6 +800,7 @@ class NewFormDialogFactory {
                     fieldname: "currency",
                     options: "Currency",
                     reqd: 1,
+                    onchange: () => self.update_conversion_rate_description(dialog)
                 },
                 { fieldtype: "Column Break" },
                 {
@@ -825,7 +825,10 @@ class NewFormDialogFactory {
 
     set_currency(dialog) {
         const company = dialog.get_value("company");
-        if (!company) return;
+        if (!company) {
+            this.company_currency = null;
+            return;
+        }
 
         frappe.db.get_value(
             "Company",
@@ -834,8 +837,34 @@ class NewFormDialogFactory {
         ).then(r => {
             if (r?.message?.default_currency) {
                 dialog.set_value("currency", r.message.default_currency);
+                this.company_currency = r.message.default_currency;
+                this.update_conversion_rate_description(dialog);
             }
         });
+    }
+
+    update_conversion_rate_description(dialog) {
+        const selected_currency = dialog.get_value("currency");
+        const company_currency = this.company_currency;
+
+        if (!selected_currency || !company_currency || (selected_currency === company_currency)) {
+            dialog.set_df_property(
+                "conversion_rate",
+                "description",
+                ""
+            );
+            return;
+        }
+
+        const description = __(
+            `1 ${selected_currency} = [?] ${company_currency}`
+        );
+
+        dialog.set_df_property(
+            "conversion_rate",
+            "description",
+            description
+        );
     }
 }
 

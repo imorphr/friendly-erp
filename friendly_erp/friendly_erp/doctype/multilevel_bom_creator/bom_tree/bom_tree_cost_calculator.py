@@ -44,57 +44,48 @@ class BOMTreeCostCalculator:
 
         self.update_item_map(node)
 
+    def should_fetch_fresh_rate_for_node(self, node: BOMTreeNode) -> bool:
+        return (
+            "*" in self.fetch_fresh_rate_for_node_ids
+            or node.node_unique_id in self.fetch_fresh_rate_for_node_ids
+        )
+
     def _calculate_item_node_cost(self, node: BOMTreeItemNode):
-        if node.node_unique_id in self.fetch_fresh_rate_for_node_ids or '*' in self.fetch_fresh_rate_for_node_ids:
-            result = BOMTreeCostCalculationHelper.calculate_item_cost(
+        fetch_fresh = self.should_fetch_fresh_rate_for_node(node)
+        base_rate = node.base_rate
+        # Fetch base_rate only if instructed by should_fetch_fresh_rate_for_node
+        # otherwise use existing base_rate value
+        if fetch_fresh:
+            base_rate = BOMTreeCostCalculationHelper.get_item_base_rate_in_company_currency_according_to_required_uom(
                 bom_creator=self.bom_creator,
                 item_code=node.item_code,
-                qty=node.component_qty_per_parent_bom_run,
-                uom=node.uom,
+                qty_in_required_uom=node.component_qty_per_parent_bom_run,
+                required_uom=node.uom,
                 stock_uom=node.stock_uom,
                 conversion_factor=node.conversion_factor,
                 sourced_by_supplier=False
             )
 
-            node.rate = result.get("rate", 0.0)
-            node.amount = result.get("amount", 0.0)
-            node.base_rate = result.get("base_rate", 0.0)
-            node.base_amount = result.get("base_amount", 0.0)
-        else:
-            node.amount = flt(
-                node.rate * node.component_qty_per_parent_bom_run)
-            node.base_amount = flt(
-                node.base_rate * node.component_qty_per_parent_bom_run)
-
-        node.total_required_amount = flt(node.rate * node.total_required_qty)
+        BOMTreeCostCalculationHelper.apply_base_rate_to_item_and_sub_assembly_node(
+            node, base_rate, self.bom_creator.conversion_rate)
 
     def _calculate_sub_assembly_node_cost(self, node: BOMTreeSubAssemblyNode):
+        fetch_fresh = self.should_fetch_fresh_rate_for_node(node)
+        base_rate = node.base_rate
         if node.is_preexisting_bom:
-            result = BOMTreeCostCalculationHelper.calculate_existing_bom_cost(
-                bom_creator=self.bom_creator,
-                bom_no=node.bom_no,
-                qty=node.component_qty_per_parent_bom_run,
-                conversion_factor=node.conversion_factor
-            )
-
-            node.rate = result.get("rate", 0.0)
-            node.amount = result.get("amount", 0.0)
-            node.base_rate = result.get("base_rate", 0.0)
-            node.base_amount = result.get("base_amount", 0.0)
+            # Fetch base_rate only if instructed by should_fetch_fresh_rate_for_node
+            # otherwise use existing base_rate value
+            if fetch_fresh:
+                base_rate = BOMTreeCostCalculationHelper.get_existing_bom_base_rate_in_company_currency_according_to_required_uom(
+                    bom_no=node.bom_no,
+                    conversion_factor=node.conversion_factor
+                )
         else:
-            total_amount = 0.0
-            total_base_amount = 0.0
-            for child in node.children:
-                if child.node_type in ["ITEM", "SUB_ASSEMBLY"]:
-                    total_amount += child.amount or 0.0
-                    total_base_amount += child.base_amount or 0.0
+            base_rate = BOMTreeCostCalculationHelper.get_new_bom_base_rate_in_company_currency_according_to_required_uom(
+                node)
 
-            node.rate = flt((total_amount / node.own_batch_size) * (node.conversion_factor or 1.0))
-            node.amount = node.rate * node.component_qty_per_parent_bom_run
-            node.base_rate = total_base_amount
-            node.base_amount = node.base_rate * node.component_qty_per_parent_bom_run
-
-        node.total_required_amount = flt(node.rate * node.total_required_qty)
+        BOMTreeCostCalculationHelper.apply_base_rate_to_item_and_sub_assembly_node(
+            node, base_rate, self.bom_creator.conversion_rate)
 
     def update_item_map(self, node: BOMTreeNode):
         if self.item_map_to_update and node.node_type in ["ITEM", "SUB_ASSEMBLY"]:
@@ -109,14 +100,15 @@ class BOMTreeCostCalculator:
 
 class BOMTreeCostCalculationHelper:
     @classmethod
-    def calculate_item_cost(cls, bom_creator, item_code: str, qty: float, uom: str, stock_uom: str, conversion_factor: float, sourced_by_supplier: bool) -> dict:
-        rate = get_bom_item_rate(
+    def get_item_base_rate_in_company_currency_according_to_required_uom(cls, bom_creator, item_code: str, qty_in_required_uom: float, required_uom: str, stock_uom: str, conversion_factor: float, sourced_by_supplier: bool) -> float:
+        # get_bom_item_rate is ERPNext method which gives rate in Company Currency according to "Required UOM".
+        rate_in_company_currency_according_to_required_uom = get_bom_item_rate(
             {
                 "company": bom_creator.company,
                 "item_code": item_code,
                 "bom_no": None,
-                "qty": qty,
-                "uom": uom,
+                "qty": qty_in_required_uom,
+                "uom": required_uom,
                 "stock_uom": stock_uom,
                 "conversion_factor": conversion_factor,
                 "sourced_by_supplier": sourced_by_supplier
@@ -124,24 +116,36 @@ class BOMTreeCostCalculationHelper:
             bom_creator,
         )
 
-        amount = rate * qty
+        return rate_in_company_currency_according_to_required_uom
 
-        return {
-            "rate": flt(rate / (bom_creator.conversion_rate or 1.0)),
-            "amount": flt(amount / (bom_creator.conversion_rate or 1.0)),
-            "base_rate": flt(rate),
-            "base_amount": flt(amount)
-        }
-    
     @classmethod
-    def calculate_existing_bom_cost(cls, bom_creator, bom_no: str, qty: float, conversion_factor: float) -> dict:
-        base_total_cost, bom_quantity = frappe.db.get_value("BOM", bom_no, ["base_total_cost", "quantity"])
-        rate = flt((base_total_cost / bom_quantity) * ( conversion_factor or 1.0))
-        amount = rate * qty
+    def get_existing_bom_base_rate_in_company_currency_according_to_required_uom(cls, bom_no: str, conversion_factor: float) -> float:
+        base_total_cost, bom_quantity = frappe.db.get_value(
+            "BOM", bom_no, ["base_total_cost", "quantity"])
+        bom_qty_in_required_uom = bom_quantity / (conversion_factor or 1.0)
+        rate_in_company_currency_according_to_required_uom = flt(
+            (base_total_cost / bom_qty_in_required_uom))
+        return rate_in_company_currency_according_to_required_uom
 
-        return {
-            "rate": flt(rate / (bom_creator.conversion_rate or 1.0)),
-            "amount": flt(amount / (bom_creator.conversion_rate or 1.0)),
-            "base_rate": flt(rate),
-            "base_amount": flt(amount)
-        }
+    @classmethod
+    def get_new_bom_base_rate_in_company_currency_according_to_required_uom(cls, node: BOMTreeSubAssemblyNode) -> float:
+        total_child_base_amount = 0.0
+        for child in node.children:
+            if child.node_type in ["ITEM", "SUB_ASSEMBLY"]:
+                total_child_base_amount += child.base_amount or 0.0
+
+        batch_size_in_required_uom = node.own_batch_size / \
+            (node.conversion_factor or 1.0)
+        base_rate = total_child_base_amount / \
+            (batch_size_in_required_uom or 1.0)
+        return base_rate
+
+    @classmethod
+    def apply_base_rate_to_item_and_sub_assembly_node(cls, node: BOMTreeItemNode, base_rate: float, conversion_rate: float) -> None:
+        conversion_rate = conversion_rate or 1.0
+        node.base_rate = base_rate
+        node.base_amount = flt(
+            base_rate * node.component_qty_per_parent_bom_run)
+        node.rate = flt(node.base_rate / conversion_rate)
+        node.amount = flt(node.base_amount / conversion_rate)
+        node.total_required_amount = flt(node.rate * node.total_required_qty)

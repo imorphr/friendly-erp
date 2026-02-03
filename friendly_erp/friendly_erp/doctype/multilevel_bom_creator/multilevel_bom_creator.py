@@ -286,6 +286,7 @@ class MultilevelBOMCreator(Document):
         item.do_not_explode = False
         item.component_qty_per_parent_bom_run = component_qty_per_parent_bom_run
         # if it is existing bom get own_batch_size from bom else from parameter
+        # own_batch_size is always in "Stock UOM"
         item.own_batch_size = bom.quantity if bom else own_batch_size
         item.uom = uom
         item.stock_uom = stock_uom

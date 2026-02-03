@@ -88,12 +88,18 @@ class BOMTreeQtyTimeCalculator:
                 "Parent of ITEM/SUB_ASSEMBLY must be a Sub Assembly node")
         parent_bom_run_count = parent_node.bom_run_count
 
+        # NOTE: total_required_qty is in "Reuired UOM" not in "Stock UOM" because
+        # component_qty_per_parent_bom_run is in "Required UOM"
         node.total_required_qty = flt(
             parent_bom_run_count * node.component_qty_per_parent_bom_run, self.PRECISION)
 
     def _calculate_qty_for_sub_assembly_node(self, node: BOMTreeSubAssemblyNode):
         self._calculate_qty_for_item_node(node)
+        # `own_batch_size` is in "Stock UOM", whereas `total_required_qty` is in the "Required UOM".
+        # Convert `own_batch_size` to the "Required UOM" to ensure units match before calculating `bom_run_count`.
+        # Own Batch Size (Required UOM) = Own Batch Size (Stock UOM) / Conversion Factor
         own_batch_size_in_reuired_uom = node.own_batch_size / node.conversion_factor
+        # Calculate BOM Run Count: Total Required Qty (in Required UOM) / Own Batch Size (in Required UOM)
         node.bom_run_count = node.total_required_qty / own_batch_size_in_reuired_uom
 
     def _calculate_time_for_operation_node(self, node: BOMTreeOperationNode):
@@ -138,10 +144,9 @@ class BOMTreeQtyTimeCalculator:
         if self.item_map_to_update and node.node_type in ["ITEM", "SUB_ASSEMBLY"]:
             item_node = self.item_map_to_update.get(node.node_unique_id)
             if item_node:
-               item_node.bom_run_count = node.bom_run_count if item_node.node_type == "SUB_ASSEMBLY" else None
-               item_node.total_required_qty = node.total_required_qty
+                item_node.bom_run_count = node.bom_run_count if item_node.node_type == "SUB_ASSEMBLY" else None
+                item_node.total_required_qty = node.total_required_qty
         elif node.node_type in ["OPERATION", "SUB_OPERATION"]:
             operation_node = self.item_map_to_update.get(node.node_unique_id)
             if operation_node:
                 operation_node.total_required_time_in_mins = node.total_required_time_in_mins
-
