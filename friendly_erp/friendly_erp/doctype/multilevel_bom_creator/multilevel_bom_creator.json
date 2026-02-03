@@ -84,7 +84,9 @@
   {
    "fieldname": "qty",
    "fieldtype": "Float",
-   "label": "Quantity"
+   "label": "Quantity",
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
    "fieldname": "section_break_qjdf",
@@ -127,7 +129,9 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
    "fieldname": "section_break_nnrl",
@@ -137,7 +141,8 @@
    "default": "1",
    "fieldname": "set_rate_of_sub_assembly_item_based_on_bom",
    "fieldtype": "Check",
-   "label": "Set rate of sub-assembly item based on BOM"
+   "label": "Set rate of sub-assembly item based on BOM",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_sjvl",
@@ -148,7 +153,8 @@
    "fieldname": "rm_cost_as_per",
    "fieldtype": "Select",
    "label": "Rate Of Materials Based On",
-   "options": "Valuation Rate\nLast Purchase Rate\nPrice List"
+   "options": "Valuation Rate\nLast Purchase Rate\nPrice List",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_nevz",
@@ -159,7 +165,8 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency",
-   "reqd": 1
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
    "default": "1.0",
@@ -195,7 +202,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-28 07:41:04.014687",
+ "modified": "2026-02-03 13:59:03.987659",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",

@@ -44,10 +44,9 @@ class MultilevelBOMCreator(Document):
         plc_conversion_rate: DF.Float
         price_list_currency: DF.Link | None
         qty: DF.Float
-        rm_cost_as_per: DF.Literal["Valuation Rate",
-                                   "Last Purchase Rate", "Price List"]
+        rm_cost_as_per: DF.Literal["Valuation Rate", "Last Purchase Rate", "Price List"]
         set_rate_of_sub_assembly_item_based_on_bom: DF.Check
-        uom: DF.Link | None
+        uom: DF.Link
     # end: auto-generated types
 
     def autoname(self):
@@ -61,6 +60,8 @@ class MultilevelBOMCreator(Document):
         if not self.qty or self.qty <= 0:
             frappe.throw("Quantity must be greater than zero.")
 
+        self.assert_price_list_currency_is_valid()
+
         if self.is_new():
             stock_uom = self._get_stock_uom(self.item_code)
             self.uom = stock_uom
@@ -69,12 +70,73 @@ class MultilevelBOMCreator(Document):
         if not self.item_nodes:
             self.add_root_item()
 
+        if not self.is_new() and self._has_rm_cost_relevant_change():
+            # Update cost calculation for whole tree as cost related fields has been changed
+            # Passing "*" for "fetch_fresh_rate_for_node_ids" to fetch fresh rate for all nodes.
+            self.update_quantity_time_and_cost(
+                BOMCreatorTreeBuilder(self).create(), {"*"}
+            )
+
+
     def before_submit(self) -> None:
         total_count = len(self.item_nodes or []) + \
             len(self.operation_nodes or [])
         if total_count < 2:
             frappe.throw("No child items or operations found.")
         self.create_boms()
+
+    def _has_rm_cost_relevant_change(self) -> bool:
+        """
+        Returns True if rm_cost_as_per or buying_price_list
+        has changed compared to previous saved state.
+        """
+        if self.is_new():
+            return True
+
+        before = self.get_doc_before_save()
+        if not before:
+            return True
+
+        return (
+            before.rm_cost_as_per != self.rm_cost_as_per
+            or before.buying_price_list != self.buying_price_list
+            or before.plc_conversion_rate != self.plc_conversion_rate
+        )
+    
+    def assert_price_list_currency_is_valid(self) -> None:
+        """
+        Validate that Price List currency matches either:
+        - Multilevel BOM Creator currency, or
+        - Company default currency
+        """
+        if not self.rm_cost_as_per == "Price List":
+            return
+        
+        if not self._has_rm_cost_relevant_change():
+            return
+
+        if not self.buying_price_list:
+            frappe.throw(_("Buying Price List is required when RM Cost As Per is 'Price List'."))
+
+        price_list_currency = frappe.get_value(
+            "Price List", self.buying_price_list, "currency"
+        )
+
+        if not price_list_currency:
+            frappe.throw(_("Currency not found for Price List {0}.").format(self.buying_price_list))
+
+        company_currency = frappe.get_value(
+            "Company", self.company, "default_currency"
+        )
+
+        if price_list_currency not in {self.currency, company_currency}:
+            frappe.throw(
+                _(
+                    "Currency mismatch in Buying Price List.<br><br>"
+                    "Price List Currency: <b>{0}</b><br>"
+                    "Allowed Currencies: <b>{1}</b>, <b>{2}</b>"
+                ).format(price_list_currency, self.currency, company_currency)
+            )
 
     def assert_unique_node_id(self, unique_id: str) -> None:
         """

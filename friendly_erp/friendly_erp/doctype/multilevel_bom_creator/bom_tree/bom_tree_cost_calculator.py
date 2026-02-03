@@ -116,7 +116,7 @@ class BOMTreeCostCalculationHelper:
             bom_creator,
         )
 
-        return rate_in_company_currency_according_to_required_uom
+        return rate_in_company_currency_according_to_required_uom or 0.0
 
     @classmethod
     def get_existing_bom_base_rate_in_company_currency_according_to_required_uom(cls, bom_no: str, conversion_factor: float) -> float:
@@ -125,7 +125,7 @@ class BOMTreeCostCalculationHelper:
         bom_qty_in_required_uom = bom_quantity / (conversion_factor or 1.0)
         rate_in_company_currency_according_to_required_uom = flt(
             (base_total_cost / bom_qty_in_required_uom))
-        return rate_in_company_currency_according_to_required_uom
+        return rate_in_company_currency_according_to_required_uom or 0.0
 
     @classmethod
     def get_new_bom_base_rate_in_company_currency_according_to_required_uom(cls, node: BOMTreeSubAssemblyNode) -> float:
@@ -138,7 +138,7 @@ class BOMTreeCostCalculationHelper:
             (node.conversion_factor or 1.0)
         base_rate = total_child_base_amount / \
             (batch_size_in_required_uom or 1.0)
-        return base_rate
+        return base_rate or 0.0
 
     @classmethod
     def apply_base_rate_to_item_and_sub_assembly_node(cls, node: BOMTreeItemNode, base_rate: float, conversion_rate: float) -> None:
