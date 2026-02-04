@@ -676,6 +676,16 @@ class BOMTreeHelper {
             $el.on("click", (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                
+                const can_execute = this.can_execute_menu_handler();
+                if (!can_execute) {
+                    this.close_current_menu();
+                    frappe.throw({
+                        title: __("Unsaved Changes"),
+                        message: __("Please save the document first and then try this operation.")
+                    });
+                }
+
                 item.action(this.frm, menu_ctx, full_data_ctx);
                 this.close_current_menu();
             });
@@ -691,6 +701,10 @@ class BOMTreeHelper {
         if (parent) parent.append(this.current_open_menu); // restore menu inside row
         this.current_open_menu = null;
         $(document).off('click.bomDropdown'); // remove outside click handler
+    }
+
+    can_execute_menu_handler() {
+        return this.frm.is_new() || !this.frm.is_dirty();
     }
 }
 
