@@ -952,13 +952,6 @@ class NewChildItemDialogFactory {
             });
         }
         fields.push({ fieldtype: "Section Break" });
-        fields.push({
-            label: __("UOM"),
-            fieldtype: "Link",
-            fieldname: "uom",
-            options: "UOM",
-            reqd: 1
-        });
         const component_qty_label = this.parent_node
             ? __(`Component Qty Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.stock_uom}) of ${this.parent_node.item_code}`)
             : __("Component Qty");
@@ -969,15 +962,15 @@ class NewChildItemDialogFactory {
             reqd: 1,
             default: 1.0
         });
+        fields.push({
+            label: __("UOM"),
+            fieldtype: "Link",
+            fieldname: "uom",
+            options: "UOM",
+            reqd: 1
+        });
         if (this.item_type === "NEW_SUB_ASSEMBLY" || this.item_type === "EXISTING_SUB_ASSEMBLY") {
             fields.push({ fieldtype: "Section Break" });
-            fields.push({
-                label: __("Batch Size UOM"),
-                fieldtype: "Link",
-                fieldname: "stock_uom",
-                options: "UOM",
-                read_only: 1
-            });
             const batch_size_label = this.item_type === "NEW_SUB_ASSEMBLY"
                 ? __("Batch Size of this new sub-assembly BOM")
                 : __("Batch Size");
@@ -988,6 +981,13 @@ class NewChildItemDialogFactory {
                 reqd: 1,
                 default: 1.0,
                 read_only: this.item_type === "EXISTING_SUB_ASSEMBLY" ? 1 : 0
+            });
+            fields.push({
+                label: __("Batch Size UOM"),
+                fieldtype: "Link",
+                fieldname: "stock_uom",
+                options: "UOM",
+                read_only: 1
             });
         }
 
