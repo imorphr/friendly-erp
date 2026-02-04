@@ -44,18 +44,17 @@ class BOMTreeQtyTimeCalculator:
     - component_qty_per_parent_bom_run = own_batch_size
     """
 
-    def __init__(self, bom_tree: BOMTree):
-        self.bom_tree = bom_tree
-        self.root_node: BOMTreeSubAssemblyNode = bom_tree.root
+    def __init__(self, root_node: BOMTreeSubAssemblyNode, item_map_to_update):
+        self.root_node: BOMTreeSubAssemblyNode = root_node
+        self.item_map_to_update = item_map_to_update
         self.PRECISION = 6
 
     def calculate(self):
         """
         Entry point to calculate quantities for the entire tree.
+        Expectation: For root node bom_run_count, component_qty_per_parent_bom_run
+        and total_required_qty should be present.
         """
-        self.root_node.component_qty_per_parent_bom_run = self.root_node.own_batch_size
-        self.root_node.total_required_qty = self.root_node.own_batch_size
-        self.root_node.bom_run_count = 1
 
         # Start recursion from children, not root
         for child in (self.root_node.children or []):
@@ -77,6 +76,8 @@ class BOMTreeQtyTimeCalculator:
         elif node.node_type == "SUB_OPERATION":
             self._calculate_time_for_sub_operation_node(node)
 
+        self.update_item_map(node)
+
         for child in (node.children or []):
             self._calculate_recursively(child)
 
@@ -87,12 +88,19 @@ class BOMTreeQtyTimeCalculator:
                 "Parent of ITEM/SUB_ASSEMBLY must be a Sub Assembly node")
         parent_bom_run_count = parent_node.bom_run_count
 
+        # NOTE: total_required_qty is in "Reuired UOM" not in "Stock UOM" because
+        # component_qty_per_parent_bom_run is in "Required UOM"
         node.total_required_qty = flt(
             parent_bom_run_count * node.component_qty_per_parent_bom_run, self.PRECISION)
 
     def _calculate_qty_for_sub_assembly_node(self, node: BOMTreeSubAssemblyNode):
         self._calculate_qty_for_item_node(node)
-        node.bom_run_count = node.total_required_qty / node.own_batch_size
+        # `own_batch_size` is in "Stock UOM", whereas `total_required_qty` is in the "Required UOM".
+        # Convert `own_batch_size` to the "Required UOM" to ensure units match before calculating `bom_run_count`.
+        # Own Batch Size (Required UOM) = Own Batch Size (Stock UOM) / Conversion Factor
+        own_batch_size_in_reuired_uom = node.own_batch_size / node.conversion_factor
+        # Calculate BOM Run Count: Total Required Qty (in Required UOM) / Own Batch Size (in Required UOM)
+        node.bom_run_count = node.total_required_qty / own_batch_size_in_reuired_uom
 
     def _calculate_time_for_operation_node(self, node: BOMTreeOperationNode):
         if node.fixed_time:
@@ -131,3 +139,14 @@ class BOMTreeQtyTimeCalculator:
                     parent_sub_assembly_node.bom_run_count)
                 node.total_required_time_in_mins = flt(
                     parent_bom_run_count * node.time_in_mins, self.PRECISION)
+
+    def update_item_map(self, node: BOMTreeNode):
+        if self.item_map_to_update and node.node_type in ["ITEM", "SUB_ASSEMBLY"]:
+            item_node = self.item_map_to_update.get(node.node_unique_id)
+            if item_node:
+                item_node.bom_run_count = node.bom_run_count if item_node.node_type == "SUB_ASSEMBLY" else None
+                item_node.total_required_qty = node.total_required_qty
+        elif node.node_type in ["OPERATION", "SUB_OPERATION"]:
+            operation_node = self.item_map_to_update.get(node.node_unique_id)
+            if operation_node:
+                operation_node.total_required_time_in_mins = node.total_required_time_in_mins

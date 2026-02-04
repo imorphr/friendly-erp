@@ -19,9 +19,9 @@ from friendly_erp.friendly_erp.util.progress_notifier import (
 
 
 class TreeToBOMConverter:
-    def __init__(self, bom_tree: BOMTree, company: str, notify_progress: bool = True):
+    def __init__(self, bom_tree: BOMTree, bom_creator, notify_progress: bool = True):
         self.tree = bom_tree
-        self.company = company
+        self.bom_creator = bom_creator
         # node_unique_id -> bom_no
         self.newly_created_boms: Dict[str, str] = {}
         self.progress_notifier = ConcreteProgressNotifier(
@@ -120,36 +120,34 @@ class TreeToBOMConverter:
 
     def _create_bom_doc(self, node: BOMTreeSubAssemblyNode):
         bom = frappe.new_doc("BOM")
-        bom.company = self.company
+        bom.company = self.bom_creator.company
         bom.item = node.item_code
         bom.bom_type = "Production"  # TODO: As of now hardcoding
-        bom.uom = node.uom
+        bom.uom = node.stock_uom    # BOM uom is always stock_uom of the item
         bom.quantity = node.own_batch_size
-        bom.rm_cost_as_per = "Valuation Rate"  # TODO: As of now hardcoding
-        bom.project = None  # TODO: As of now hardcoding
-        bom.currency = "GBP"  # TODO: As of now hardcoding
-        bom.conversion_rate = 1  # TODO: As of now hardcoding
-        bom.buying_price_list = None  # TODO: As of now hardcoding
+        bom.rm_cost_as_per = self.bom_creator.rm_cost_as_per
+        bom.project = None  # As of now no project linkage
+        bom.currency = self.bom_creator.currency
+        bom.conversion_rate = self.bom_creator.conversion_rate
+        bom.buying_price_list = self.bom_creator.buying_price_list
+        bom.plc_conversion_rate = self.bom_creator.plc_conversion_rate
+        bom.price_list_currency = self.bom_creator.price_list_currency
         return bom
 
     def _create_bom_item(self, child: BOMTreeItemNode | BOMTreeSubAssemblyNode):
-        stock_uom = frappe.get_value(
-            "Item",
-            child.item_code,
-            "stock_uom",
-        )
-        conversion_factor = get_conversion_factor(
-            child.item_code,
-            child.uom,
-        ).get("conversion_factor") or 1.0
         bom_item = frappe.new_doc("BOM Item")
         bom_item.item_code = child.item_code
-        bom_item.qty = child.component_qty_per_parent_bom_run
         bom_item.uom = child.uom
-        bom_item.stock_uom = stock_uom
-        bom_item.conversion_factor = conversion_factor
-        bom_item.stock_qty = child.component_qty_per_parent_bom_run * conversion_factor
-        bom_item.rate = 1                       # TODO: As of now hardcoding
+        bom_item.stock_uom = child.stock_uom
+        bom_item.conversion_factor = child.conversion_factor
+        bom_item.qty = child.component_qty_per_parent_bom_run
+        bom_item.stock_qty = child.component_stock_qty_per_parent_bom_run
+        # For only non stock item provide rate, otherwise BOM doctype logic will itself pull
+        # proper cost. In Multilevel BOM Creator tree cost is calculated but that is only for
+        # user's idea. While creating BOM do not assign those rate/cost values for stock items
+        # as BOM doctype logic will calculate it. 
+        if child.node_type == "ITEM" and not child.is_stock_item:
+            bom_item.rate = child.rate
         bom_item.do_not_explode = child.do_not_explode
         bom_item.source_warehouse = None        # TODO: As of now hardcoding
         bom_item.allow_alternative_item = 0     # TODO: As of now hardcoding

@@ -85,14 +85,30 @@ class BOMTreeNode:
 class BOMTreeItemNode(BOMTreeNode):
     item_code: str = None
     do_not_explode: bool = False
-    # Parent-relative quantity: Quantity of this item required to produce BOM-quantity of the parent node.
-    # ie Quantity needed per ONE execution of parent BOM.
+    is_stock_item: bool = False
+
+    uom: str = None                 # Required UOM
+    stock_uom: str = None           # Stock UOM
+    conversion_factor: float = 1.0  # 1 Required UOM = <conversion_factor> Stock UOM
+
+    # Parent-relative quantity: Quantity of this item required to produce BOM-quantity of the parent node in Required UOM.
+    # ie Quantity needed per ONE execution of parent BOM in Required UOM.
     component_qty_per_parent_bom_run: float = 0.0
+    # Quantity needed per ONE execution of parent BOM in Stock UOM.
+    component_stock_qty_per_parent_bom_run: float = 0.0
     # Root-relative quantity (derived):Total quantity of this item required to produce
     # the configured BOM quantity of the ROOT node.
     # This value is calculated by propagating quantities top-down through the BOM tree.
     total_required_qty: float = 0.0
-    uom: str = None
+
+    rate: float = 0.0
+    amount: float = 0.0
+    base_rate: float = 0.0
+    base_amount: float = 0.0
+    # Root-relative cost (derived):Total cost of this node required to produce
+    # the configured BOM quantity of the ROOT node.
+    total_required_amount: float = 0.0
+
 
 
 @dataclass
@@ -111,7 +127,7 @@ class BOMTreeSubAssemblyNode(BOMTreeItemNode):
     is_preexisting_bom: bool = False
 
     # Self BOM quantity: Quantity of the sub-assembly item produced by ONE execution of this sub-assembly BOM.
-    # This is the BOM quantity that will be used when creating or referencing the BOM for this sub-assembly.
+    # This is in Stock UOM.
     own_batch_size: float = 0.0
 
     # Number of times this sub-assembly BOM must be executed in order to satisfy

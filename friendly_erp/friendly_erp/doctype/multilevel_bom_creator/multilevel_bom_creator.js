@@ -5,7 +5,42 @@ frappe.ui.form.on("Multilevel BOM Creator", {
     refresh(frm) {
         setup_bom_creator(frm);
     },
+
+    rm_cost_as_per(frm) {
+        set_plc_conversion_rate_from_price_list(frm);
+    },
+
+    buying_price_list(frm) {
+        set_plc_conversion_rate_from_price_list(frm);
+    }
 });
+
+function set_plc_conversion_rate_from_price_list(frm) {
+    if (frm.doc.rm_cost_as_per !== "Price List") {
+        return;
+    }
+
+    const price_list = frm.doc.buying_price_list;
+    const company_currency = frm.doc.company_currency;
+
+    if (!price_list || !company_currency) {
+        return;
+    }
+
+    frappe.db.get_value("Price List", price_list, "currency")
+        .then(r => {
+            const price_list_currency = r?.message?.currency;
+            if (!price_list_currency) return;
+
+            if (price_list_currency === company_currency) {
+                frm.set_value("plc_conversion_rate", 1);
+                frm.set_df_property("plc_conversion_rate", "description", "");
+            } else {
+                frm.set_value("plc_conversion_rate", null);
+                frm.set_df_property("plc_conversion_rate", "description", `1 ${price_list_currency} = [?] ${company_currency}`);
+            }
+        });
+}
 
 function setup_bom_creator(frm) {
     frm._tree_helper = new BOMTreeHelper(frm);
@@ -215,7 +250,8 @@ function add_item(frm, parent, values) {
             parent_node_unique_id: parent.node_unique_id,
             item_code: values.item_code,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
-            uom: values.uom
+            uom: values.uom,
+            rate: values.rate
         },
         freeze: true,
         freeze_message: __("Adding Item..."),
@@ -234,7 +270,8 @@ function update_item(frm, ctx, values) {
             multilevel_bom_creator_name: frm.doc.name,
             node_unique_id: ctx.node_unique_id,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
-            uom: values.uom
+            uom: values.uom,
+            rate: values.rate
         },
         freeze: true,
         freeze_message: __("Updating Item..."),
@@ -294,7 +331,8 @@ function add_existing_sub_assembly(frm, parent, values) {
             multilevel_bom_creator_name: frm.doc.name,
             parent_node_unique_id: parent.node_unique_id,
             bom_no: values.bom_no,
-            component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run
+            component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
+            uom: values.uom
         },
         freeze: true,
         freeze_message: __("Adding existing Sub-assembly..."),
@@ -410,34 +448,58 @@ class BOMTreeHelper {
                 }
             },
             {
+                name: "Batch UOM",
+                id: "stock_uom",
+                width: 105,
+                format: function (value, row, column, data) {
+                    if (data.node_type !== "SUB_ASSEMBLY") return "";
+                    return value || "";
+                }
+            },
+            {
+                name: "Batch Size",
+                id: "own_batch_size",
+                width: 105
+            },
+            {
                 name: "UOM",
                 id: "uom",
                 width: 90
             },
             {
-                name: "Batch Size",
-                id: "own_batch_size",
-                width: 110
-            },
-            {
-                name: "Component Qty",
+                name: "Comp. Qty",
                 id: "component_qty_per_parent_bom_run",
-                width: 130
+                width: 100
             },
             {
                 name: "Req. Qty",
                 id: "total_required_qty",
-                width: 110
+                width: 100
             },
             {
-                name: "Time (mins)",
+                name: "Time",
                 id: "time_in_mins",
                 width: 100
             },
             {
-                name: "Req. Time (mins)",
+                name: "Req. Time",
                 id: "total_required_time_in_mins",
-                width: 130
+                width: 105
+            },
+            {
+                name: "Rate",
+                id: "rate",
+                width: 100
+            },
+            {
+                name: "Amount",
+                id: "amount",
+                width: 100
+            },
+            {
+                name: "Total Amount",
+                id: "total_required_amount",
+                width: 100
             },
             {
                 name: "",
@@ -654,6 +716,16 @@ class BOMTreeHelper {
             $el.on("click", (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+
+                const can_execute = this.can_execute_menu_handler();
+                if (!can_execute) {
+                    this.close_current_menu();
+                    frappe.throw({
+                        title: __("Unsaved Changes"),
+                        message: __("Please save the document first and then try this operation.")
+                    });
+                }
+
                 item.action(this.frm, menu_ctx, full_data_ctx);
                 this.close_current_menu();
             });
@@ -669,6 +741,10 @@ class BOMTreeHelper {
         if (parent) parent.append(this.current_open_menu); // restore menu inside row
         this.current_open_menu = null;
         $(document).off('click.bomDropdown'); // remove outside click handler
+    }
+
+    can_execute_menu_handler() {
+        return this.frm.is_new() || !this.frm.is_dirty();
     }
 }
 
@@ -714,9 +790,11 @@ class NewFormDialogFactory {
     constructor(frm, action) {
         this.frm = frm;
         this.action = action;
+        this.company_currency = null;
     }
 
     create() {
+        const self = this;
         const dialog = new frappe.ui.Dialog({
             title: __("Multilevel BOM Creator"),
             fields: [
@@ -743,13 +821,6 @@ class NewFormDialogFactory {
                         });
                     },
                 },
-                {
-                    label: __("UOM"),
-                    fieldtype: "Link",
-                    fieldname: "uom",
-                    options: "UOM",
-                    reqd: 1,
-                },
                 { fieldtype: "Column Break" },
                 {
                     label: __("Company"),
@@ -758,13 +829,41 @@ class NewFormDialogFactory {
                     options: "Company",
                     reqd: 1,
                     default: frappe.defaults.get_user_default("Company"),
+                    onchange: () => self.set_currency(dialog)
                 },
+                { fieldtype: "Section Break" },
+                {
+                    label: __("UOM"),
+                    fieldtype: "Link",
+                    fieldname: "uom",
+                    options: "UOM",
+                    read_only: 1
+                },
+                { fieldtype: "Column Break" },
                 {
                     label: __("Quantity"),
                     fieldtype: "Float",
                     fieldname: "qty",
                     reqd: 1,
                     default: 1.0,
+                },
+                { fieldtype: "Section Break" },
+                {
+                    label: __("Currency"),
+                    fieldtype: "Link",
+                    fieldname: "currency",
+                    options: "Currency",
+                    reqd: 1,
+                    onchange: () => self.update_conversion_rate_description(dialog)
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Conversion Rate"),
+                    fieldtype: "Float",
+                    fieldname: "conversion_rate",
+                    reqd: 1,
+                    default: 1,
+                    precision: 9
                 },
             ],
             primary_action_label: __("Create"),
@@ -774,7 +873,52 @@ class NewFormDialogFactory {
         });
 
         dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
+        self.set_currency(dialog);
         return dialog;
+    }
+
+    set_currency(dialog) {
+        const company = dialog.get_value("company");
+        if (!company) {
+            this.company_currency = null;
+            return;
+        }
+
+        frappe.db.get_value(
+            "Company",
+            company,
+            "default_currency"
+        ).then(r => {
+            if (r?.message?.default_currency) {
+                dialog.set_value("currency", r.message.default_currency);
+                this.company_currency = r.message.default_currency;
+                this.update_conversion_rate_description(dialog);
+            }
+        });
+    }
+
+    update_conversion_rate_description(dialog) {
+        const selected_currency = dialog.get_value("currency");
+        const company_currency = this.company_currency;
+
+        if (!selected_currency || !company_currency || (selected_currency === company_currency)) {
+            dialog.set_df_property(
+                "conversion_rate",
+                "description",
+                ""
+            );
+            return;
+        }
+
+        const description = __(
+            `1 ${selected_currency} = [?] ${company_currency}`
+        );
+
+        dialog.set_df_property(
+            "conversion_rate",
+            "description",
+            description
+        );
     }
 }
 
@@ -810,16 +954,8 @@ class NewChildItemDialogFactory {
             });
         }
         fields.push({ fieldtype: "Section Break" });
-        fields.push({
-            label: __("UOM"),
-            fieldtype: "Link",
-            fieldname: "uom",
-            options: "UOM",
-            reqd: 1,
-            read_only: this.item_type === "EXISTING_SUB_ASSEMBLY" ? 1 : 0
-        });
         const component_qty_label = this.parent_node
-            ? __(`Component Qty Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.uom}) of ${this.parent_node.item_code}`)
+            ? __(`Component Qty Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.stock_uom}) of ${this.parent_node.item_code}`)
             : __("Component Qty");
         fields.push({
             label: component_qty_label,
@@ -828,15 +964,40 @@ class NewChildItemDialogFactory {
             reqd: 1,
             default: 1.0
         });
-        if (this.item_type === "NEW_SUB_ASSEMBLY") {
-            fields.push({ fieldtype: "Section Break" });
+        fields.push({
+            label: __("UOM"),
+            fieldtype: "Link",
+            fieldname: "uom",
+            options: "UOM",
+            reqd: 1
+        });
+        if (this.item_type === "ITEM") {
             fields.push({
-                label: __("Batch Size"),
+                label: __("Rate") + ` (${this.frm.doc.currency})`,
+                fieldtype: "Currency",
+                fieldname: "rate",
+                hidden: 1
+            });
+        }
+        if (this.item_type === "NEW_SUB_ASSEMBLY" || this.item_type === "EXISTING_SUB_ASSEMBLY") {
+            fields.push({ fieldtype: "Section Break" });
+            const batch_size_label = this.item_type === "NEW_SUB_ASSEMBLY"
+                ? __("Batch Size of this new sub-assembly BOM")
+                : __("Batch Size");
+            fields.push({
+                label: batch_size_label,
                 fieldtype: "Float",
                 fieldname: "own_batch_size",
                 reqd: 1,
                 default: 1.0,
-                description: "Batch size of this new sub-assembly BOM"
+                read_only: this.item_type === "EXISTING_SUB_ASSEMBLY" ? 1 : 0
+            });
+            fields.push({
+                label: __("Batch Size UOM"),
+                fieldtype: "Link",
+                fieldname: "stock_uom",
+                options: "UOM",
+                read_only: 1
             });
         }
 
@@ -851,11 +1012,11 @@ class NewChildItemDialogFactory {
 
         if (fields.some(f => f.fieldname === "item_code")) {
             dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
-            dialog.fields_dict.item_code.df.onchange = () => this.on_item_change(dialog);
+            dialog.fields_dict.item_code.df.onchange = () => self.on_item_change(dialog);
         }
 
         if (this.item_type === "EXISTING_SUB_ASSEMBLY") {
-            dialog.fields_dict.bom_no.df.onchange = () => this.on_bom_change(dialog);
+            dialog.fields_dict.bom_no.df.onchange = () => self.on_bom_change(dialog);
         }
         return dialog;
     }
@@ -868,16 +1029,26 @@ class NewChildItemDialogFactory {
         }
 
         dialog.set_value("component_qty_per_parent_bom_run", ctx.component_qty_per_parent_bom_run);
-        if (this.item_type !== "EXISTING_SUB_ASSEMBLY") {
-            dialog.set_value("uom", ctx.uom);
+        dialog.set_value("uom", ctx.uom);
+
+        if (this.item_type === "EXISTING_SUB_ASSEMBLY" || this.item_type === "NEW_SUB_ASSEMBLY") {
+            dialog.set_value("stock_uom", ctx.stock_uom);
+            dialog.set_value("own_batch_size", ctx.own_batch_size);
         }
 
-        if (this.item_type === "NEW_SUB_ASSEMBLY") {
-            dialog.set_value("own_batch_size", ctx.own_batch_size);
+        if (this.item_type === "ITEM") {
+            const is_stock_item = ctx.is_stock_item ? 1 : 0;
+            dialog.set_df_property('rate', 'hidden', is_stock_item);
+            if (!is_stock_item) {
+                dialog.set_value("rate", ctx.rate);
+            }
         }
     }
 
     on_item_change(dialog) {
+        if (this.mode === "EDIT") {
+            return;
+        }
         const item_code = dialog.get_value("item_code");
         if (!item_code) {
             return;
@@ -885,15 +1056,24 @@ class NewChildItemDialogFactory {
         frappe.db.get_value(
             "Item",
             item_code,
-            "stock_uom"
+            ["stock_uom", "is_stock_item"]
         ).then((r) => {
             if (r && r.message && r.message.stock_uom) {
                 dialog.set_value("uom", r.message.stock_uom);
+                dialog.set_value("stock_uom", r.message.stock_uom);
+            }
+            if (r && r.message) {
+                const is_stock_item = r.message.is_stock_item ? 1 : 0;
+                // Hide rate if stock item
+                dialog.set_df_property('rate', 'hidden', is_stock_item);
             }
         });
     }
 
     on_bom_change(dialog) {
+        if (this.mode === "EDIT") {
+            return;
+        }
         const bom_no = dialog.get_value("bom_no");
         if (!bom_no) {
             return;
@@ -901,10 +1081,12 @@ class NewChildItemDialogFactory {
         frappe.db.get_value(
             "BOM",
             bom_no,
-            "uom"
+            ["uom", "quantity"]
         ).then((r) => {
             if (r && r.message && r.message.uom) {
                 dialog.set_value("uom", r.message.uom);
+                dialog.set_value("stock_uom", r.message.uom);
+                dialog.set_value("own_batch_size", r.message.quantity);
             }
         });
     }

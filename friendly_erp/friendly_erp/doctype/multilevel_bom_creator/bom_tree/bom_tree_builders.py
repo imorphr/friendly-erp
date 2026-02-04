@@ -8,13 +8,15 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree 
     BOMTreeOperationNode,
     BOMTreeSubOperationNode
 )
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_cost_calculator import BOMTreeCostCalculator
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_node_factories import (
     BOMCreatorTreeNodeFactory,
     ExistingBOMTreeNodeFactory
 )
-from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_qty_time_calculator import BOMTreeQtyTimeCalculator
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree_qty_time_calculator import BOMTreeQtyTimeCalculator
+
 
 class BOMCreatorTreeBuilder:
     """
@@ -32,10 +34,11 @@ class BOMCreatorTreeBuilder:
     cycle checks are done upfront while adding item to multi level bom doctype's child items.
     So here it is safe to assume that there is no possibility of cycle.
     """
-    def __init__(self, bom_creator_doc):
+    def __init__(self, bom_creator_doc, project_existing_bom_nodes: bool = False):
         if not bom_creator_doc:
             frappe.throw("BOM Creator document is required to build BOM Tree.")
         self.bom_creator_doc = bom_creator_doc
+        self.project_existing_bom_nodes = project_existing_bom_nodes
         self.creator_nodes: list[MultilevelBOMCreatorItemNode |
                                  MultilevelBOMCreatorOperationNode] = []
         self.creator_item_nodes_by_parent: Dict[str,
@@ -58,7 +61,6 @@ class BOMCreatorTreeBuilder:
             frappe.throw("Tree is already built.")
         self.tree = BOMTree()
         self._build_tree()
-        BOMTreeQtyTimeCalculator(self.tree).calculate()
         return self.tree
 
     def _build_tree(self):
@@ -105,14 +107,20 @@ class BOMCreatorTreeBuilder:
         # Existing BOM PROJECTION as well as LEAF NODE DETECTION
         if not child_items:
             if parent_node.node_type == "SUB_ASSEMBLY" and parent_node.is_preexisting_bom and parent_node.bom_no:
-                existing_bom_tree = ExistingBOMTreeBuilder(
-                    parent_node.bom_no).create()
-                # As this tree is being created from existing BOM, mark all nodes as projected
-                # Ideally these nodes are not coming from multilevel bom creator, but they are
-                # projected from the existing bom node of the multilevel bom creator.
-                existing_bom_tree.mark_all_nodes_as_projected()
-                # Attach existing BOM tree's children to the current child_node
-                self.tree.merge_another_tree(parent_node, existing_bom_tree, True)
+                if self.project_existing_bom_nodes:
+                    existing_bom_tree = ExistingBOMTreeBuilder(
+                        parent_node.bom_no).create()
+                    # As this tree is being created from existing BOM, mark all nodes as projected
+                    # Ideally these nodes are not coming from multilevel bom creator, but they are
+                    # projected from the existing bom node of the multilevel bom creator.
+                    existing_bom_tree.mark_all_nodes_as_projected()
+                    # Attach existing BOM tree's children to the current child_node
+                    self.tree.merge_another_tree(parent_node, existing_bom_tree, True)
+                    # Nodes originating from the BOM Creator document already have time and quantity fields populated.
+                    # However, nodes projected from an existing BOM are raw and lack these derived values.
+                    # We must explicitly invoke the calculator for this sub-tree to populate context-dependent fields.
+                    BOMTreeQtyTimeCalculator(parent_node, None).calculate()
+                    BOMTreeCostCalculator(self.bom_creator_doc, parent_node, None, None).calculate()
             return
 
         sorted_child_items = sorted(child_items, key=lambda x: x.sequence)
@@ -179,16 +187,16 @@ class ExistingBOMTreeBuilder:
         if self.tree:
             frappe.throw("Tree is already built.")
         self.tree = BOMTree()
-        self._traverse_bom(self.bom_no, None, 0)
+        self._traverse_bom(self.bom_no, None, 0, None)
         return self.tree
 
-    def _traverse_bom(self, bom_no: str, parent_node: BOMTreeNode, sequence: int):
+    def _traverse_bom(self, bom_no: str, parent_node: BOMTreeNode, sequence: int, bom_item):
         bom = frappe.get_doc("BOM", bom_no)
         if not bom:
             frappe.throw(f"BOM '{bom_no}' not found.")
 
         node = ExistingBOMTreeNodeFactory.create_from_bom(
-            bom, sequence, self.tree)
+            bom, sequence, self.tree, bom_item)
         if not parent_node:
             self.tree.set_root(node)
         else:
@@ -221,7 +229,7 @@ class ExistingBOMTreeBuilder:
             should_not_explode = self._should_not_explode(bom_item)
             child_node = None
             if is_sub_assembly and not should_not_explode:
-                self._traverse_bom(bom_item.bom_no, parent_node, bom_item.idx)
+                self._traverse_bom(bom_item.bom_no, parent_node, bom_item.idx, bom_item)
             else:
                 child_node = ExistingBOMTreeNodeFactory.create_from_item(
                     bom_item, bom_item.idx, self.tree)

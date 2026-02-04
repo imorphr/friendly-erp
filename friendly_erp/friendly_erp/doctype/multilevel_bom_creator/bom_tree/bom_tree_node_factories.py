@@ -44,10 +44,19 @@ class BOMCreatorTreeNodeFactory:
             item_code=item.item_code,
             internal_name=item.item_code,
             display_name=f"{item.sequence}: {item.item_code}",
+            is_stock_item=item.is_stock_item,
             component_qty_per_parent_bom_run=item.component_qty_per_parent_bom_run,
-            total_required_qty=None, # It should be calculated after tree construction
+            total_required_qty=item.total_required_qty,
             uom=item.uom,
-            do_not_explode=item.do_not_explode
+            stock_uom=item.stock_uom,
+            conversion_factor=item.conversion_factor,
+            component_stock_qty_per_parent_bom_run=item.component_stock_qty_per_parent_bom_run,
+            do_not_explode=item.do_not_explode,
+            rate=item.rate,
+            amount=item.amount,
+            base_rate=item.base_rate,
+            base_amount=item.base_amount,
+            total_required_amount=item.total_required_amount
         )
 
     @staticmethod
@@ -60,11 +69,21 @@ class BOMCreatorTreeNodeFactory:
             is_preexisting_bom=item.is_preexisting_bom,
             internal_name=item.item_code,
             display_name=display_name,
+            is_stock_item=item.is_stock_item,
             component_qty_per_parent_bom_run=item.component_qty_per_parent_bom_run,
             own_batch_size=item.own_batch_size,
-            total_required_qty=None, # It should be calculated after tree construction
+            bom_run_count=item.bom_run_count,
+            total_required_qty=item.total_required_qty,
             uom=item.uom,
-            do_not_explode=item.do_not_explode
+            stock_uom=item.stock_uom,
+            conversion_factor=item.conversion_factor,
+            component_stock_qty_per_parent_bom_run=item.component_stock_qty_per_parent_bom_run,
+            do_not_explode=item.do_not_explode,
+            rate=item.rate,
+            amount=item.amount,
+            base_rate=item.base_rate,
+            base_amount=item.base_amount,
+            total_required_amount=item.total_required_amount
         )
 
     @staticmethod
@@ -77,6 +96,7 @@ class BOMCreatorTreeNodeFactory:
             internal_name=item.operation,
             display_name=f"{item.sequence}: {item.operation}{workstation_display_text}",
             time_in_mins=item.time_in_mins,
+            total_required_time_in_mins=item.total_required_time_in_mins,
             fixed_time=item.fixed_time,
             workstation_type=item.workstation_type,
             workstation=item.workstation,
@@ -85,22 +105,37 @@ class BOMCreatorTreeNodeFactory:
 
 class ExistingBOMTreeNodeFactory:
     @staticmethod
-    def create_from_bom(bom, sequence: int, tree_ref) -> BOMTreeSubAssemblyNode:
+    def create_from_bom(bom, sequence: int, tree_ref, bom_item=None) -> BOMTreeSubAssemblyNode:
         display_name = f"{sequence}: {bom.item} [{bom.name}]"
+        qty_per_parent_bom_run = bom_item.qty if bom_item else bom.quantity
+        stock_qty_per_parent_bom_run = bom_item.stock_qty if bom_item else bom.quantity
         return BOMTreeSubAssemblyNode(
             node_type="SUB_ASSEMBLY",
             tree_ref=tree_ref,
             node_unique_id=frappe.generate_hash(),  # Using a GUID longer than 10 characters to reduce the risk of ID collisions
             sequence=sequence,
             item_code=bom.item,
+            is_stock_item=1,  # BOM items are alays stock items
             bom_no=bom.name,
             is_preexisting_bom=True,
             internal_name=bom.item,
             display_name=display_name,
-            component_qty_per_parent_bom_run=bom.quantity,
+
+            uom=bom_item.uom if bom_item else bom.uom,
+            stock_uom=bom_item.stock_uom if bom_item else bom.uom,
+            conversion_factor=bom_item.conversion_factor if bom_item else 1.0,
+
             own_batch_size=bom.quantity,
+
+            component_qty_per_parent_bom_run=qty_per_parent_bom_run,
+            component_stock_qty_per_parent_bom_run=stock_qty_per_parent_bom_run,
             total_required_qty=None, # It should be calculated after tree construction
-            uom=bom.uom,
+
+            # Calculate base rate for qty in Required UOM
+            base_rate=bom.base_total_cost/(qty_per_parent_bom_run or 1.0),
+            base_amount=None,   # It should be calculated after tree construction
+            rate=None,          # It should be calculated after tree construction
+            amount=None,        # It should be calculated after tree construction
         )
 
     @staticmethod
@@ -114,9 +149,20 @@ class ExistingBOMTreeNodeFactory:
             item_code=bom_item.item_code,
             internal_name=bom_item.item_code,
             display_name=display_name,
-            component_qty_per_parent_bom_run=bom_item.qty,
-            total_required_qty=None, # It should be calculated after tree construction
+            is_stock_item=bom_item.is_stock_item,
+
             uom=bom_item.uom,
+            stock_uom=bom_item.stock_uom,
+            conversion_factor=bom_item.conversion_factor,
+
+            component_qty_per_parent_bom_run=bom_item.qty,
+            component_stock_qty_per_parent_bom_run=bom_item.stock_qty,
+            total_required_qty=None, # It should be calculated after tree construction
+            
+            rate=bom_item.rate,
+            amount=bom_item.amount,
+            base_rate=bom_item.base_rate,
+            base_amount=bom_item.base_amount
         )
 
     @staticmethod
