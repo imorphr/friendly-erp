@@ -66,7 +66,9 @@ class BOMTreeCostCalculator:
                 required_uom=node.uom,
                 stock_uom=node.stock_uom,
                 conversion_factor=node.conversion_factor,
-                sourced_by_supplier=False
+                sourced_by_supplier=False,
+                is_stock_item=node.is_stock_item,
+                existing_base_rate=node.base_rate
             )
 
         BOMTreeCostCalculationHelper.apply_base_rate_to_item_and_sub_assembly_node(
@@ -103,7 +105,7 @@ class BOMTreeCostCalculator:
 
 class BOMTreeCostCalculationHelper:
     @classmethod
-    def get_item_base_rate_in_company_currency_according_to_required_uom(cls, bom_creator, item_code: str, qty_in_required_uom: float, required_uom: str, stock_uom: str, conversion_factor: float, sourced_by_supplier: bool) -> float:
+    def get_item_base_rate_in_company_currency_according_to_required_uom(cls, bom_creator, item_code: str, qty_in_required_uom: float, required_uom: str, stock_uom: str, conversion_factor: float, sourced_by_supplier: bool, is_stock_item: bool, existing_base_rate: float) -> float:
         # get_bom_item_rate is ERPNext method which gives rate in Company Currency according to "Required UOM".
         rate_in_company_currency_according_to_required_uom = get_bom_item_rate(
             {
@@ -123,6 +125,10 @@ class BOMTreeCostCalculationHelper:
             # For Price List erpnext standard get_bom_item_rate method is not taking actual value of plc_conversion_rate
             # And taking it as 1. So in case of "Price List", need to multiply rate with plc_conversion_rate.
             rate_in_company_currency_according_to_required_uom = flt(rate_in_company_currency_according_to_required_uom) * flt(bom_creator.plc_conversion_rate or 1.0)
+
+        # For non stock item use provided existing rate if standard get_bom_item_rate method does not return value
+        if not is_stock_item and not rate_in_company_currency_according_to_required_uom and existing_base_rate:
+            rate_in_company_currency_according_to_required_uom = existing_base_rate
 
         return rate_in_company_currency_according_to_required_uom or 0.0
 

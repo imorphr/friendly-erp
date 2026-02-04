@@ -250,7 +250,8 @@ function add_item(frm, parent, values) {
             parent_node_unique_id: parent.node_unique_id,
             item_code: values.item_code,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
-            uom: values.uom
+            uom: values.uom,
+            rate: values.rate
         },
         freeze: true,
         freeze_message: __("Adding Item..."),
@@ -269,7 +270,8 @@ function update_item(frm, ctx, values) {
             multilevel_bom_creator_name: frm.doc.name,
             node_unique_id: ctx.node_unique_id,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
-            uom: values.uom
+            uom: values.uom,
+            rate: values.rate
         },
         freeze: true,
         freeze_message: __("Updating Item..."),
@@ -969,6 +971,14 @@ class NewChildItemDialogFactory {
             options: "UOM",
             reqd: 1
         });
+        if (this.item_type === "ITEM") {
+            fields.push({
+                label: __("Rate") + ` (${this.frm.doc.currency})`,
+                fieldtype: "Currency",
+                fieldname: "rate",
+                hidden: 1
+            });
+        }
         if (this.item_type === "NEW_SUB_ASSEMBLY" || this.item_type === "EXISTING_SUB_ASSEMBLY") {
             fields.push({ fieldtype: "Section Break" });
             const batch_size_label = this.item_type === "NEW_SUB_ASSEMBLY"
@@ -1025,6 +1035,14 @@ class NewChildItemDialogFactory {
             dialog.set_value("stock_uom", ctx.stock_uom);
             dialog.set_value("own_batch_size", ctx.own_batch_size);
         }
+
+        if (this.item_type === "ITEM") {
+            const is_stock_item = ctx.is_stock_item ? 1 : 0;
+            dialog.set_df_property('rate', 'hidden', is_stock_item);
+            if (!is_stock_item) {
+                dialog.set_value("rate", ctx.rate);
+            }
+        }
     }
 
     on_item_change(dialog) {
@@ -1038,11 +1056,16 @@ class NewChildItemDialogFactory {
         frappe.db.get_value(
             "Item",
             item_code,
-            "stock_uom"
+            ["stock_uom", "is_stock_item"]
         ).then((r) => {
             if (r && r.message && r.message.stock_uom) {
                 dialog.set_value("uom", r.message.stock_uom);
                 dialog.set_value("stock_uom", r.message.stock_uom);
+            }
+            if (r && r.message) {
+                const is_stock_item = r.message.is_stock_item ? 1 : 0;
+                // Hide rate if stock item
+                dialog.set_df_property('rate', 'hidden', is_stock_item);
             }
         });
     }

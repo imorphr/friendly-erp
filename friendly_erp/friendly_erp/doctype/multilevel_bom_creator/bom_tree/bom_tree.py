@@ -85,6 +85,7 @@ class BOMTreeNode:
 class BOMTreeItemNode(BOMTreeNode):
     item_code: str = None
     do_not_explode: bool = False
+    is_stock_item: bool = False
 
     uom: str = None                 # Required UOM
     stock_uom: str = None           # Stock UOM

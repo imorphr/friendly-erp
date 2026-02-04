@@ -142,7 +142,12 @@ class TreeToBOMConverter:
         bom_item.conversion_factor = child.conversion_factor
         bom_item.qty = child.component_qty_per_parent_bom_run
         bom_item.stock_qty = child.component_stock_qty_per_parent_bom_run
-        # bom_item.rate = 1                       # TODO: As of now hardcoding
+        # For only non stock item provide rate, otherwise BOM doctype logic will itself pull
+        # proper cost. In Multilevel BOM Creator tree cost is calculated but that is only for
+        # user's idea. While creating BOM do not assign those rate/cost values for stock items
+        # as BOM doctype logic will calculate it. 
+        if child.node_type == "ITEM" and not child.is_stock_item:
+            bom_item.rate = child.rate
         bom_item.do_not_explode = child.do_not_explode
         bom_item.source_warehouse = None        # TODO: As of now hardcoding
         bom_item.allow_alternative_item = 0     # TODO: As of now hardcoding

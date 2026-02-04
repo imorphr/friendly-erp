@@ -44,6 +44,7 @@ class BOMCreatorTreeNodeFactory:
             item_code=item.item_code,
             internal_name=item.item_code,
             display_name=f"{item.sequence}: {item.item_code}",
+            is_stock_item=item.is_stock_item,
             component_qty_per_parent_bom_run=item.component_qty_per_parent_bom_run,
             total_required_qty=item.total_required_qty,
             uom=item.uom,
@@ -68,6 +69,7 @@ class BOMCreatorTreeNodeFactory:
             is_preexisting_bom=item.is_preexisting_bom,
             internal_name=item.item_code,
             display_name=display_name,
+            is_stock_item=item.is_stock_item,
             component_qty_per_parent_bom_run=item.component_qty_per_parent_bom_run,
             own_batch_size=item.own_batch_size,
             bom_run_count=item.bom_run_count,
@@ -113,6 +115,7 @@ class ExistingBOMTreeNodeFactory:
             node_unique_id=frappe.generate_hash(),  # Using a GUID longer than 10 characters to reduce the risk of ID collisions
             sequence=sequence,
             item_code=bom.item,
+            is_stock_item=1,  # BOM items are alays stock items
             bom_no=bom.name,
             is_preexisting_bom=True,
             internal_name=bom.item,
@@ -146,6 +149,7 @@ class ExistingBOMTreeNodeFactory:
             item_code=bom_item.item_code,
             internal_name=bom_item.item_code,
             display_name=display_name,
+            is_stock_item=bom_item.is_stock_item,
 
             uom=bom_item.uom,
             stock_uom=bom_item.stock_uom,

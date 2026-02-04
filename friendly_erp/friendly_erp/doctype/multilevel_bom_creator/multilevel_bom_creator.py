@@ -45,7 +45,8 @@ class MultilevelBOMCreator(Document):
         plc_conversion_rate: DF.Float
         price_list_currency: DF.Link | None
         qty: DF.Float
-        rm_cost_as_per: DF.Literal["Valuation Rate", "Last Purchase Rate", "Price List"]
+        rm_cost_as_per: DF.Literal["Valuation Rate",
+                                   "Last Purchase Rate", "Price List"]
         set_rate_of_sub_assembly_item_based_on_bom: DF.Check
         uom: DF.Link
     # end: auto-generated types
@@ -191,7 +192,7 @@ class MultilevelBOMCreator(Document):
         item.sequence = 1
         self.append("item_nodes", item)
 
-    def add_item(self, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, uom: str) -> None:
+    def add_item(self, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, uom: str, rate: float) -> None:
         """Add a new item under the specified parent node."""
         self.ensure_draft_status()
         if not component_qty_per_parent_bom_run or component_qty_per_parent_bom_run <= 0:
@@ -223,6 +224,10 @@ class MultilevelBOMCreator(Document):
 
         item.sequence = self._get_child_item_node_sequence(
             parent_node_unique_id)
+        item.is_stock_item = self._is_stock_item(item_code)
+        # For non stock item consider user given rate
+        if not item.is_stock_item and rate:
+            item.base_rate = rate * (self.conversion_rate or 1.0)
         self.append("item_nodes", item)
 
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
@@ -255,7 +260,7 @@ class MultilevelBOMCreator(Document):
 
         self.update_quantity_time_and_cost(tree, {unique_id})
 
-    def update_item(self, node_unique_id: str, component_qty_per_parent_bom_run: float, uom: str) -> None:
+    def update_item(self, node_unique_id: str, component_qty_per_parent_bom_run: float, uom: str, rate: float) -> None:
         self.ensure_draft_status()
 
         if not component_qty_per_parent_bom_run or component_qty_per_parent_bom_run <= 0:
@@ -283,7 +288,9 @@ class MultilevelBOMCreator(Document):
         item.conversion_factor = conversion_factor
         item.component_stock_qty_per_parent_bom_run = component_qty_per_parent_bom_run * \
             conversion_factor
-
+        # For non stock item consider user given rate
+        if not item.is_stock_item:
+            item.base_rate = rate * (self.conversion_rate or 1.0) if rate else 0.0
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         self.update_quantity_time_and_cost(tree, {item.node_unique_id})
 
@@ -307,6 +314,13 @@ class MultilevelBOMCreator(Document):
         self.ensure_draft_status()
         if not bom_no and not item_code:
             frappe.throw("Either BOM name or Item code must be provided.")
+
+        is_stock_item = 0
+        if not bom_no:
+            is_stock_item = self._is_stock_item(item_code)
+            # To create BOM for an item, item must be stock item
+            if not is_stock_item:
+                frappe.throw(f"Item {item_code} is not a stock item.")
 
         if not component_qty_per_parent_bom_run or component_qty_per_parent_bom_run <= 0:
             frappe.throw(
@@ -363,6 +377,7 @@ class MultilevelBOMCreator(Document):
 
         item.sequence = self._get_child_item_node_sequence(
             parent_node_unique_id)
+        item.is_stock_item = 1  # When we reach here item must be stock item
         self.append("item_nodes", item)
 
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
@@ -667,6 +682,13 @@ class MultilevelBOMCreator(Document):
             "stock_uom"
         )
 
+    def _is_stock_item(self, item_code: str) -> bool:
+        return frappe.get_value(
+            "Item",
+            item_code,
+            "is_stock_item"
+        )
+
     def _get_conversion_factor_for_uom_to_stock_uom(self, item_code: str, uom: str) -> float:
         return get_conversion_factor(item_code, uom).get("conversion_factor") or 1.0
 
@@ -703,22 +725,22 @@ def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
 
 
 @frappe.whitelist()
-def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, uom: str) -> None:
+def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, uom: str, rate: float=None) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_item(
-        parent_node_unique_id, item_code, component_qty_per_parent_bom_run, uom)
+        parent_node_unique_id, item_code, component_qty_per_parent_bom_run, uom, rate)
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
 
 
 @frappe.whitelist()
-def update_item(multilevel_bom_creator_name: str, node_unique_id: str, component_qty_per_parent_bom_run: float, uom: str) -> None:
+def update_item(multilevel_bom_creator_name: str, node_unique_id: str, component_qty_per_parent_bom_run: float, uom: str, rate: float=None) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.update_item(
-        node_unique_id, component_qty_per_parent_bom_run, uom)
+        node_unique_id, component_qty_per_parent_bom_run, uom, rate)
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification which causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
