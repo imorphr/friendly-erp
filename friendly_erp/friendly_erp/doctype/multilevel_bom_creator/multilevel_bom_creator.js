@@ -446,55 +446,58 @@ class BOMTreeHelper {
                 }
             },
             {
+                name: "Batch UOM",
+                id: "stock_uom",
+                width: 105,
+                format: function (value, row, column, data) {
+                    if (data.node_type !== "SUB_ASSEMBLY") return "";
+                    return value || "";
+                }
+            },
+            {
+                name: "Batch Size",
+                id: "own_batch_size",
+                width: 105
+            },
+            {
                 name: "UOM",
                 id: "uom",
                 width: 90
             },
             {
-                name: "Batch Size",
-                id: "own_batch_size",
-                width: 110,
-                format: function (value, row, column, data) {
-                    if (!value) return "";
-
-                    const batch_size = data.uom !== data.stock_uom ? `${value} (${data.stock_uom})` : value;
-                    return batch_size;
-                }
-            },
-            {
-                name: "Component Qty",
+                name: "Comp. Qty",
                 id: "component_qty_per_parent_bom_run",
-                width: 130
+                width: 100
             },
             {
                 name: "Req. Qty",
                 id: "total_required_qty",
-                width: 110
+                width: 100
             },
             {
-                name: "Time (mins)",
+                name: "Time",
                 id: "time_in_mins",
                 width: 100
             },
             {
-                name: "Req. Time (mins)",
+                name: "Req. Time",
                 id: "total_required_time_in_mins",
-                width: 130
+                width: 105
             },
             {
                 name: "Rate",
                 id: "rate",
-                width: 130
+                width: 100
             },
             {
                 name: "Amount",
                 id: "amount",
-                width: 130
+                width: 100
             },
             {
                 name: "Total Amount",
                 id: "total_required_amount",
-                width: 130
+                width: 100
             },
             {
                 name: "",
