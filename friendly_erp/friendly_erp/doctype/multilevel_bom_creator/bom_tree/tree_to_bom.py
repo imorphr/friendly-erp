@@ -130,15 +130,17 @@ class TreeToBOMConverter:
         bom.currency = self.bom_creator.currency
         bom.conversion_rate = self.bom_creator.conversion_rate
         bom.buying_price_list = self.bom_creator.buying_price_list
+        bom.plc_conversion_rate = self.bom_creator.plc_conversion_rate
+        bom.price_list_currency = self.bom_creator.price_list_currency
         return bom
 
     def _create_bom_item(self, child: BOMTreeItemNode | BOMTreeSubAssemblyNode):
         bom_item = frappe.new_doc("BOM Item")
         bom_item.item_code = child.item_code
-        bom_item.qty = child.component_qty_per_parent_bom_run
         bom_item.uom = child.uom
         bom_item.stock_uom = child.stock_uom
         bom_item.conversion_factor = child.conversion_factor
+        bom_item.qty = child.component_qty_per_parent_bom_run
         bom_item.stock_qty = child.component_stock_qty_per_parent_bom_run
         # bom_item.rate = 1                       # TODO: As of now hardcoding
         bom_item.do_not_explode = child.do_not_explode

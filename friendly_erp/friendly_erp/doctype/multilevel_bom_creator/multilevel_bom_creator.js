@@ -5,7 +5,42 @@ frappe.ui.form.on("Multilevel BOM Creator", {
     refresh(frm) {
         setup_bom_creator(frm);
     },
+
+    rm_cost_as_per(frm) {
+        set_plc_conversion_rate_from_price_list(frm);
+    },
+
+    buying_price_list(frm) {
+        set_plc_conversion_rate_from_price_list(frm);
+    }
 });
+
+function set_plc_conversion_rate_from_price_list(frm) {
+    if (frm.doc.rm_cost_as_per !== "Price List") {
+        return;
+    }
+
+    const price_list = frm.doc.buying_price_list;
+    const company_currency = frm.doc.company_currency;
+
+    if (!price_list || !company_currency) {
+        return;
+    }
+
+    frappe.db.get_value("Price List", price_list, "currency")
+        .then(r => {
+            const price_list_currency = r?.message?.currency;
+            if (!price_list_currency) return;
+
+            if (price_list_currency === company_currency) {
+                frm.set_value("plc_conversion_rate", 1);
+                frm.set_df_property("plc_conversion_rate", "description", "");
+            } else {
+                frm.set_value("plc_conversion_rate", null);
+                frm.set_df_property("plc_conversion_rate", "description", `1 ${price_list_currency} = [?] ${company_currency}`);
+            }
+        });
+}
 
 function setup_bom_creator(frm) {
     frm._tree_helper = new BOMTreeHelper(frm);
@@ -676,7 +711,7 @@ class BOMTreeHelper {
             $el.on("click", (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 const can_execute = this.can_execute_menu_handler();
                 if (!can_execute) {
                     this.close_current_menu();

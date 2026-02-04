@@ -45,6 +45,9 @@ class BOMTreeCostCalculator:
         self.update_item_map(node)
 
     def should_fetch_fresh_rate_for_node(self, node: BOMTreeNode) -> bool:
+        if node.is_projected:
+            return False
+
         return (
             "*" in self.fetch_fresh_rate_for_node_ids
             or node.node_unique_id in self.fetch_fresh_rate_for_node_ids
@@ -115,6 +118,11 @@ class BOMTreeCostCalculationHelper:
             },
             bom_creator,
         )
+
+        if (bom_creator.rm_cost_as_per == "Price List"):
+            # For Price List erpnext standard get_bom_item_rate method is not taking actual value of plc_conversion_rate
+            # And taking it as 1. So in case of "Price List", need to multiply rate with plc_conversion_rate.
+            rate_in_company_currency_according_to_required_uom = flt(rate_in_company_currency_according_to_required_uom) * flt(bom_creator.plc_conversion_rate or 1.0)
 
         return rate_in_company_currency_according_to_required_uom or 0.0
 

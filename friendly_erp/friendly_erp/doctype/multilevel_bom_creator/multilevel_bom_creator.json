@@ -13,6 +13,7 @@
   "qty",
   "column_break_xkaq",
   "company",
+  "company_currency",
   "uom",
   "section_break_nnrl",
   "set_rate_of_sub_assembly_item_based_on_bom",
@@ -185,6 +186,7 @@
   },
   {
    "depends_on": "eval:doc.rm_cost_as_per=='Price List'",
+   "fetch_from": "buying_price_list.currency",
    "fieldname": "price_list_currency",
    "fieldtype": "Link",
    "label": "Price List Currency",
@@ -195,6 +197,13 @@
    "fieldname": "plc_conversion_rate",
    "fieldtype": "Float",
    "label": "Price List Exchange Rate"
+  },
+  {
+   "fieldname": "company_currency",
+   "fieldtype": "Link",
+   "label": "Company Currency",
+   "options": "Currency",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
@@ -202,7 +211,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-03 13:59:03.987659",
+ "modified": "2026-02-04 06:27:29.106498",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",

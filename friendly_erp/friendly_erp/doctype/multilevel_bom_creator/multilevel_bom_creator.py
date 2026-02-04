@@ -35,6 +35,7 @@ class MultilevelBOMCreator(Document):
         amended_from: DF.Link | None
         buying_price_list: DF.Link | None
         company: DF.Link
+        company_currency: DF.Link | None
         conversion_rate: DF.Float
         currency: DF.Link
         description: DF.LongText | None
@@ -70,13 +71,17 @@ class MultilevelBOMCreator(Document):
         if not self.item_nodes:
             self.add_root_item()
 
+        if not self.company_currency:
+            self.company_currency = frappe.get_value(
+                "Company", self.company, "default_currency"
+            )
+
         if not self.is_new() and self._has_rm_cost_relevant_change():
             # Update cost calculation for whole tree as cost related fields has been changed
             # Passing "*" for "fetch_fresh_rate_for_node_ids" to fetch fresh rate for all nodes.
             self.update_quantity_time_and_cost(
                 BOMCreatorTreeBuilder(self).create(), {"*"}
             )
-
 
     def before_submit(self) -> None:
         total_count = len(self.item_nodes or []) + \
@@ -102,7 +107,7 @@ class MultilevelBOMCreator(Document):
             or before.buying_price_list != self.buying_price_list
             or before.plc_conversion_rate != self.plc_conversion_rate
         )
-    
+
     def assert_price_list_currency_is_valid(self) -> None:
         """
         Validate that Price List currency matches either:
@@ -111,31 +116,29 @@ class MultilevelBOMCreator(Document):
         """
         if not self.rm_cost_as_per == "Price List":
             return
-        
+
         if not self._has_rm_cost_relevant_change():
             return
 
         if not self.buying_price_list:
-            frappe.throw(_("Buying Price List is required when RM Cost As Per is 'Price List'."))
+            frappe.throw(
+                _("Buying Price List is required when RM Cost As Per is 'Price List'."))
 
         price_list_currency = frappe.get_value(
             "Price List", self.buying_price_list, "currency"
         )
 
         if not price_list_currency:
-            frappe.throw(_("Currency not found for Price List {0}.").format(self.buying_price_list))
+            frappe.throw(_("Currency not found for Price List {0}.").format(
+                self.buying_price_list))
 
-        company_currency = frappe.get_value(
-            "Company", self.company, "default_currency"
-        )
-
-        if price_list_currency not in {self.currency, company_currency}:
+        if price_list_currency not in {self.currency, self.company_currency}:
             frappe.throw(
                 _(
                     "Currency mismatch in Buying Price List.<br><br>"
                     "Price List Currency: <b>{0}</b><br>"
                     "Allowed Currencies: <b>{1}</b>, <b>{2}</b>"
-                ).format(price_list_currency, self.currency, company_currency)
+                ).format(price_list_currency, self.currency, self.company_currency)
             )
 
     def assert_unique_node_id(self, unique_id: str) -> None:
@@ -180,10 +183,11 @@ class MultilevelBOMCreator(Document):
         item.component_qty_per_parent_bom_run = self.qty or 1.0
         item.own_batch_size = self.qty or 1.0
         item.total_required_qty = self.qty or 1.0
-        item.bom_run_count = 1 # For root node bom run count is 1
+        item.bom_run_count = 1  # For root node bom run count is 1
         item.uom = self.uom
-        item.stock_uom = self.uom # For root node bom uom is same as item's stock uom
-        item.conversion_factor = 1.0 # For root node bom conversion factor is 1 as uom and stock uom are same
+        item.stock_uom = self.uom  # For root node bom uom is same as item's stock uom
+        # For root node bom conversion factor is 1 as uom and stock uom are same
+        item.conversion_factor = 1.0
         item.sequence = 1
         self.append("item_nodes", item)
 
@@ -325,7 +329,8 @@ class MultilevelBOMCreator(Document):
             if bom.company != self.company:
                 frappe.throw(_("Selected BOM belongs to a different company"))
             if bom.currency != self.currency:
-                frappe.throw(_("Selected BOM currency does not match Multilevel BOM Creator currency"))
+                frappe.throw(
+                    _("Selected BOM currency does not match Multilevel BOM Creator currency"))
 
         item_code_to_use = bom.item if bom else item_code
         stock_uom = bom.uom if bom else self._get_stock_uom(item_code_to_use)
@@ -415,7 +420,7 @@ class MultilevelBOMCreator(Document):
         item.component_qty_per_parent_bom_run = component_qty_per_parent_bom_run
         if not item.is_preexisting_bom:
             item.own_batch_size = own_batch_size
-        
+
         item.uom = uom
         conversion_factor = self._get_conversion_factor_for_uom_to_stock_uom(
             item.item_code, item.uom)
@@ -498,7 +503,8 @@ class MultilevelBOMCreator(Document):
         operation_doc.workstation = workstation if not workstation_type else None
 
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
-        self.update_quantity_time_and_cost(tree, {operation_doc.node_unique_id})
+        self.update_quantity_time_and_cost(
+            tree, {operation_doc.node_unique_id})
 
     def duplicate_bom_structure(self, node_unique_id: str) -> None:
         self.ensure_draft_status()
@@ -671,13 +677,14 @@ class MultilevelBOMCreator(Document):
         for operation in self.operation_nodes:
             node_item_map[operation.node_unique_id] = operation
         return node_item_map
-    
+
     def update_quantity_time_and_cost(self, tree: BOMTree, fetch_fresh_rate_for_node_ids: set) -> None:
         self._update_qty_and_time(tree)
         self._update_cost(tree, fetch_fresh_rate_for_node_ids)
 
     def _update_qty_and_time(self, tree: BOMTree) -> None:
-        qty_time_calculator = BOMTreeQtyTimeCalculator(tree.root, self._get_node_item_map())
+        qty_time_calculator = BOMTreeQtyTimeCalculator(
+            tree.root, self._get_node_item_map())
         qty_time_calculator.calculate()
 
     def _update_cost(self, tree: BOMTree, fetch_fresh_rate_for_node_ids: set) -> None:
@@ -690,7 +697,8 @@ class MultilevelBOMCreator(Document):
 def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
-    tree: BOMTree = BOMCreatorTreeBuilder(multilevel_bom_creator, True).create()
+    tree: BOMTree = BOMCreatorTreeBuilder(
+        multilevel_bom_creator, True).create()
     return tree.to_depth_first_flat_list()
 
 
