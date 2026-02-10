@@ -290,7 +290,8 @@ class MultilevelBOMCreator(Document):
             conversion_factor
         # For non stock item consider user given rate
         if not item.is_stock_item:
-            item.base_rate = rate * (self.conversion_rate or 1.0) if rate else 0.0
+            item.base_rate = rate * \
+                (self.conversion_rate or 1.0) if rate else 0.0
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         self.update_quantity_time_and_cost(tree, {item.node_unique_id})
 
@@ -725,7 +726,7 @@ def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
 
 
 @frappe.whitelist()
-def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, uom: str, rate: float=None) -> None:
+def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, uom: str, rate: float = None) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_item(
@@ -736,7 +737,7 @@ def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_
 
 
 @frappe.whitelist()
-def update_item(multilevel_bom_creator_name: str, node_unique_id: str, component_qty_per_parent_bom_run: float, uom: str, rate: float=None) -> None:
+def update_item(multilevel_bom_creator_name: str, node_unique_id: str, component_qty_per_parent_bom_run: float, uom: str, rate: float = None) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.update_item(
@@ -791,7 +792,18 @@ def update_existing_sub_assembly(multilevel_bom_creator_name: str, node_unique_i
 
 
 @frappe.whitelist()
-def add_operation(multilevel_bom_creator_name: str, parent_node_unique_id: str, operation: str, time_in_mins: float, fixed_time: bool, workstation_type: str = None, workstation: str = None) -> None:
+def add_operation(
+    multilevel_bom_creator_name: str,
+    parent_node_unique_id: str,
+    operation: str,
+    time_in_mins: float,
+    fixed_time: bool,
+    workstation_type: str = None,
+    workstation: str = None,
+    hour_rate: float = None,
+    batch_size: float = None,
+    set_cost_based_on_bom_qty: bool = False
+) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_operation(
@@ -802,7 +814,17 @@ def add_operation(multilevel_bom_creator_name: str, parent_node_unique_id: str, 
 
 
 @frappe.whitelist()
-def update_operation(multilevel_bom_creator_name: str, node_unique_id: str, time_in_mins: float, fixed_time: bool, workstation_type: str = None, workstation: str = None) -> None:
+def update_operation(
+    multilevel_bom_creator_name: str, 
+    node_unique_id: str, 
+    time_in_mins: float, 
+    fixed_time: bool, 
+    workstation_type: str = None, 
+    workstation: str = None,
+    hour_rate: float = None,
+    batch_size: float = None,
+    set_cost_based_on_bom_qty: bool = False
+) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.update_operation(
