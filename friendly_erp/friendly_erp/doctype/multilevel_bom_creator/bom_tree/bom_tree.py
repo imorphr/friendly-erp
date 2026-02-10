@@ -82,7 +82,18 @@ class BOMTreeNode:
 
 
 @dataclass
-class BOMTreeItemNode(BOMTreeNode):
+class BOMTreeCostAwareNode(BOMTreeNode):
+    rate: float = 0.0
+    amount: float = 0.0
+    base_rate: float = 0.0
+    base_amount: float = 0.0
+    # Root-relative cost (derived):Total cost of this node required to produce
+    # the configured BOM quantity of the ROOT node.
+    total_required_amount: float = 0.0
+
+
+@dataclass
+class BOMTreeItemNode(BOMTreeCostAwareNode):
     item_code: str = None
     do_not_explode: bool = False
     is_stock_item: bool = False
@@ -100,15 +111,6 @@ class BOMTreeItemNode(BOMTreeNode):
     # the configured BOM quantity of the ROOT node.
     # This value is calculated by propagating quantities top-down through the BOM tree.
     total_required_qty: float = 0.0
-
-    rate: float = 0.0
-    amount: float = 0.0
-    base_rate: float = 0.0
-    base_amount: float = 0.0
-    # Root-relative cost (derived):Total cost of this node required to produce
-    # the configured BOM quantity of the ROOT node.
-    total_required_amount: float = 0.0
-
 
 
 @dataclass
@@ -143,7 +145,7 @@ class BOMTreeSubAssemblyNode(BOMTreeItemNode):
 
 
 @dataclass
-class BOMTreeOperationNode(BOMTreeNode):
+class BOMTreeOperationNode(BOMTreeCostAwareNode):
     operation: str = None
     time_in_mins: float = 0.0
     fixed_time: bool = False
@@ -154,6 +156,11 @@ class BOMTreeOperationNode(BOMTreeNode):
     # This value is calculated by propagating time top-down through the BOM tree.
     total_required_time_in_mins: float = 0.0
 
+    # Following fields are important to calculate rate and amount fields for operation node
+    hour_rate: float = 0.0
+    base_hour_rate: float = 0.0
+    batch_size: float = 0.0
+    set_cost_based_on_bom_qty: bool = False
 
 @dataclass
 class BOMTreeSubOperationNode(BOMTreeOperationNode):

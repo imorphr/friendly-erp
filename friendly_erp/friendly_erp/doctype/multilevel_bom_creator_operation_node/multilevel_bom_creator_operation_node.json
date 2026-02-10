@@ -24,13 +24,8 @@
   "hour_rate",
   "base_hour_rate",
   "column_break_lfpu",
-  "operating_cost",
-  "base_operating_cost",
-  "column_break_vyfr",
   "batch_size",
   "set_cost_based_on_bom_qty",
-  "cost_per_unit",
-  "base_cost_per_unit",
   "section_break_ocrj",
   "rate",
   "base_rate",
@@ -136,24 +131,10 @@
   {
    "fieldname": "base_hour_rate",
    "fieldtype": "Currency",
-   "label": "Base Hour Rate(Company Currency)"
+   "label": "Base Hour Rate (Company Currency)"
   },
   {
    "fieldname": "column_break_lfpu",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "operating_cost",
-   "fieldtype": "Currency",
-   "label": "Operating Cost"
-  },
-  {
-   "fieldname": "base_operating_cost",
-   "fieldtype": "Currency",
-   "label": "Operating Cost(Company Currency)"
-  },
-  {
-   "fieldname": "column_break_vyfr",
    "fieldtype": "Column Break"
   },
   {
@@ -166,16 +147,6 @@
    "fieldname": "set_cost_based_on_bom_qty",
    "fieldtype": "Check",
    "label": "Set Operating Cost Based On BOM Quantity"
-  },
-  {
-   "fieldname": "cost_per_unit",
-   "fieldtype": "Currency",
-   "label": "Cost Per Unit"
-  },
-  {
-   "fieldname": "base_cost_per_unit",
-   "fieldtype": "Currency",
-   "label": "Base Cost Per Unit"
   },
   {
    "fieldname": "section_break_ocrj",
@@ -216,7 +187,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-10 11:39:43.599557",
+ "modified": "2026-02-10 14:18:30.197659",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Operation Node",

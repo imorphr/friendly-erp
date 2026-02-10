@@ -9,11 +9,13 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree 
     BOMTreeItemNode,
     BOMTreeSubAssemblyNode,
     BOMTreeOperationNode,
-    BOMTreeSubOperationNode
+    BOMTreeSubOperationNode,
+    BOMTreeCostAwareNode
 )
 
 from erpnext.manufacturing.doctype.bom.bom import get_bom_item_rate
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
+from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
 
 
 class BOMTreeCostCalculator:
@@ -24,7 +26,7 @@ class BOMTreeCostCalculator:
     should be fetched. If it contains '*', fresh rates will be fetched for all item nodes
     """
 
-    def __init__(self, bom_creator, root_node: BOMTreeSubAssemblyNode, item_map_to_update: Dict[str, MultilevelBOMCreatorItemNode], fetch_fresh_rate_for_node_ids: set):
+    def __init__(self, bom_creator, root_node: BOMTreeSubAssemblyNode, item_map_to_update: Dict[str, MultilevelBOMCreatorItemNode | MultilevelBOMCreatorOperationNode], fetch_fresh_rate_for_node_ids: set):
         self.bom_creator = bom_creator
         self.root_node = root_node
         self.item_map_to_update = item_map_to_update
@@ -41,6 +43,8 @@ class BOMTreeCostCalculator:
             self._calculate_item_node_cost(node)
         elif node.node_type == "SUB_ASSEMBLY":
             self._calculate_sub_assembly_node_cost(node)
+        elif node.node_type == "OPERATION":
+            self._calculate_operation_node_cost(node)
 
         self.update_item_map(node)
 
@@ -91,16 +95,26 @@ class BOMTreeCostCalculator:
 
         BOMTreeCostCalculationHelper.apply_base_rate_to_item_and_sub_assembly_node(
             node, base_rate, self.bom_creator.conversion_rate)
+        
+    def _calculate_operation_node_cost(self, node: BOMTreeOperationNode):
+        pass
 
-    def update_item_map(self, node: BOMTreeNode):
-        if self.item_map_to_update and node.node_type in ["ITEM", "SUB_ASSEMBLY"]:
+    def update_item_map(self, node: BOMTreeCostAwareNode):
+        if self.item_map_to_update and node.node_type in ["ITEM", "SUB_ASSEMBLY", "OPERATION"]:
             item_node = self.item_map_to_update.get(node.node_unique_id)
             if item_node:
+                if node.node_type == "OPERATION":
+                    self._update_additional_operation_cost_fields(item_node, node)
+
                 item_node.rate = node.rate
                 item_node.amount = node.amount
                 item_node.base_rate = node.base_rate
                 item_node.base_amount = node.base_amount
                 item_node.total_required_amount = node.total_required_amount
+
+    def _update_additional_operation_cost_fields(self, item_node: MultilevelBOMCreatorOperationNode, node: BOMTreeOperationNode):
+        item_node.hour_rate = node.hour_rate
+        item_node.base_hour_rate = node.base_hour_rate
 
 
 class BOMTreeCostCalculationHelper:

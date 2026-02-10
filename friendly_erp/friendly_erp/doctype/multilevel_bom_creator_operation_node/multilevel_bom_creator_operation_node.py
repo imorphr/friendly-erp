@@ -16,17 +16,13 @@ class MultilevelBOMCreatorOperationNode(Document):
 
 		amount: DF.Currency
 		base_amount: DF.Currency
-		base_cost_per_unit: DF.Currency
 		base_hour_rate: DF.Currency
-		base_operating_cost: DF.Currency
 		base_rate: DF.Currency
 		batch_size: DF.Int
-		cost_per_unit: DF.Currency
 		fixed_time: DF.Check
 		hour_rate: DF.Currency
 		node_type: DF.Literal["OPERATION"]
 		node_unique_id: DF.Data | None
-		operating_cost: DF.Currency
 		operation: DF.Link | None
 		parent: DF.Data
 		parent_node_unique_id: DF.Data | None
