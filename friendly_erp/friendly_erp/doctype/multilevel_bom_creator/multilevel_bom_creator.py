@@ -290,7 +290,8 @@ class MultilevelBOMCreator(Document):
             conversion_factor
         # For non stock item consider user given rate
         if not item.is_stock_item:
-            item.base_rate = rate * (self.conversion_rate or 1.0) if rate else 0.0
+            item.base_rate = rate * \
+                (self.conversion_rate or 1.0) if rate else 0.0
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         self.update_quantity_time_and_cost(tree, {item.node_unique_id})
 
@@ -447,24 +448,24 @@ class MultilevelBOMCreator(Document):
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         self.update_quantity_time_and_cost(tree, {item.node_unique_id})
 
-    def add_operation(self, parent_node_unique_id: str, operation: str, time_in_mins: float, fixed_time: bool, workstation_type: str, workstation: str) -> None:
+    def add_operation(
+        self,
+        parent_node_unique_id: str,
+        operation: str,
+        time_in_mins: float,
+        fixed_time: bool,
+        workstation_type: str,
+        workstation: str,
+        hour_rate: float = None,
+        batch_size: float = None,
+        set_cost_based_on_bom_qty: bool = False
+    ) -> None:
         """Add a new operation under the specified parent node."""
         self.ensure_draft_status()
         if not workstation and not workstation_type:
             frappe.throw(
                 "Provide atleast one of Workstation Type and Workstation")
-        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
-        parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
-        if not parent_node:
-            frappe.throw(
-                f"Parent node with ID {parent_node_unique_id} not found.")
-
-        if not parent_node.can_add_child_operation:
-            frappe.throw(
-                f"Cannot add operation under node '{parent_node.display_name}'. "
-                f"Adding child operations is not allowed for this node."
-            )
-
+        
         parent_item = next((
             item for item in self.item_nodes if item.node_unique_id == parent_node_unique_id
         ), None)
@@ -491,11 +492,38 @@ class MultilevelBOMCreator(Document):
         operation_doc.workstation = workstation if not workstation_type else None
         operation_doc.sequence = self._get_child_operation_node_sequence(
             parent_node_unique_id)
+        operation_doc.hour_rate = hour_rate
+        operation_doc.batch_size = batch_size
+        operation_doc.set_cost_based_on_bom_qty = set_cost_based_on_bom_qty
+
         self.append("operation_nodes", operation_doc)
 
-        self.update_quantity_time_and_cost(tree, {unique_id})
+        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
+        parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
+        if not parent_node:
+            frappe.throw(
+                f"Parent node with ID {parent_node_unique_id} not found.")
 
-    def update_operation(self, node_unique_id: str, time_in_mins: float, fixed_time: bool, workstation_type: str, workstation: str) -> None:
+        if not parent_node.can_add_child_operation:
+            frappe.throw(
+                f"Cannot add operation under node '{parent_node.display_name}'. "
+                f"Adding child operations is not allowed for this node."
+            )
+
+        # Passing None as fetch_fresh_rate_for_node_ids as we here expect hour rate should be provided by client 
+        self.update_quantity_time_and_cost(tree, None)
+
+    def update_operation(
+        self,
+        node_unique_id: str,
+        time_in_mins: float,
+        fixed_time: bool,
+        workstation_type: str,
+        workstation: str,
+        hour_rate: float = None,
+        batch_size: float = None,
+        set_cost_based_on_bom_qty: bool = False
+    ) -> None:
         self.ensure_draft_status()
         if not workstation and not workstation_type:
             frappe.throw(
@@ -516,10 +544,12 @@ class MultilevelBOMCreator(Document):
         operation_doc.fixed_time = fixed_time
         operation_doc.workstation_type = workstation_type
         operation_doc.workstation = workstation if not workstation_type else None
+        operation_doc.hour_rate = hour_rate
+        operation_doc.batch_size = batch_size
+        operation_doc.set_cost_based_on_bom_qty = set_cost_based_on_bom_qty
 
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
-        self.update_quantity_time_and_cost(
-            tree, {operation_doc.node_unique_id})
+        self.update_quantity_time_and_cost(tree, None)
 
     def duplicate_bom_structure(self, node_unique_id: str) -> None:
         self.ensure_draft_status()
@@ -725,7 +755,7 @@ def get_tree_flat(multilevel_bom_creator_name: str) -> list[dict]:
 
 
 @frappe.whitelist()
-def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, uom: str, rate: float=None) -> None:
+def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_code: str, component_qty_per_parent_bom_run: float, uom: str, rate: float = None) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_item(
@@ -736,7 +766,7 @@ def add_item(multilevel_bom_creator_name: str, parent_node_unique_id: str, item_
 
 
 @frappe.whitelist()
-def update_item(multilevel_bom_creator_name: str, node_unique_id: str, component_qty_per_parent_bom_run: float, uom: str, rate: float=None) -> None:
+def update_item(multilevel_bom_creator_name: str, node_unique_id: str, component_qty_per_parent_bom_run: float, uom: str, rate: float = None) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.update_item(
@@ -791,22 +821,43 @@ def update_existing_sub_assembly(multilevel_bom_creator_name: str, node_unique_i
 
 
 @frappe.whitelist()
-def add_operation(multilevel_bom_creator_name: str, parent_node_unique_id: str, operation: str, time_in_mins: float, fixed_time: bool, workstation_type: str = None, workstation: str = None) -> None:
+def add_operation(
+    multilevel_bom_creator_name: str,
+    parent_node_unique_id: str,
+    operation: str,
+    time_in_mins: float,
+    fixed_time: bool,
+    workstation_type: str = None,
+    workstation: str = None,
+    hour_rate: float = None,
+    batch_size: float = None,
+    set_cost_based_on_bom_qty: bool = False
+) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.add_operation(
-        parent_node_unique_id, operation, time_in_mins, fixed_time, workstation_type, workstation)
+        parent_node_unique_id, operation, time_in_mins, fixed_time, workstation_type, workstation, hour_rate, batch_size, set_cost_based_on_bom_qty)
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()
 
 
 @frappe.whitelist()
-def update_operation(multilevel_bom_creator_name: str, node_unique_id: str, time_in_mins: float, fixed_time: bool, workstation_type: str = None, workstation: str = None) -> None:
+def update_operation(
+    multilevel_bom_creator_name: str,
+    node_unique_id: str,
+    time_in_mins: float,
+    fixed_time: bool,
+    workstation_type: str = None,
+    workstation: str = None,
+    hour_rate: float = None,
+    batch_size: float = None,
+    set_cost_based_on_bom_qty: bool = False
+) -> None:
     multilevel_bom_creator = frappe.get_doc(
         "Multilevel BOM Creator", multilevel_bom_creator_name)
     multilevel_bom_creator.update_operation(
-        node_unique_id, time_in_mins, fixed_time, workstation_type, workstation)
+        node_unique_id, time_in_mins, fixed_time, workstation_type, workstation, hour_rate, batch_size, set_cost_based_on_bom_qty)
     # Do not send update notification through websocket, because frappe form auto refreshes on this notification causes flicker on the tree UI
     multilevel_bom_creator.flags.notify_update = False
     multilevel_bom_creator.save()

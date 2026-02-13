@@ -39,13 +39,13 @@ class MultilevelBOMCreatorItemNode(Document):
 		parentfield: DF.Data
 		parenttype: DF.Data
 		project: DF.Link | None
-		rate: DF.Float
+		rate: DF.Currency
 		sequence: DF.Int
 		set_rate_of_sub_assembly_item_based_on_bom: DF.Check
 		source_warehouse: DF.Link | None
 		sourced_by_supplier: DF.Check
 		stock_uom: DF.Link | None
-		total_required_amount: DF.Float
+		total_required_amount: DF.Currency
 		total_required_qty: DF.Float
 		uom: DF.Link | None
 	# end: auto-generated types

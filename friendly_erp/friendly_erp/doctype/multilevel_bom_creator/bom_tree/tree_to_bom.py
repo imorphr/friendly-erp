@@ -165,4 +165,7 @@ class TreeToBOMConverter:
         operation.sequence_id = child.sequence
         operation.workstation_type = child.workstation_type
         operation.workstation = child.workstation
+        operation.hour_rate = child.hour_rate
+        operation.batch_size = child.batch_size
+        operation.set_cost_based_on_bom_qty = child.set_cost_based_on_bom_qty
         return operation

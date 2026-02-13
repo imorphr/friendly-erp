@@ -100,6 +100,15 @@ class BOMCreatorTreeNodeFactory:
             fixed_time=item.fixed_time,
             workstation_type=item.workstation_type,
             workstation=item.workstation,
+            hour_rate=item.hour_rate,
+            base_hour_rate=item.base_hour_rate,
+            batch_size=item.batch_size,
+            set_cost_based_on_bom_qty=item.set_cost_based_on_bom_qty,
+            rate=item.rate,
+            amount=item.amount,
+            base_rate=item.base_rate,
+            base_amount=item.base_amount,
+            total_required_amount=item.total_required_amount
         )
 
 

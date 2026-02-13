@@ -19,7 +19,20 @@
   "total_required_time_in_mins",
   "column_break_wcat",
   "workstation_type",
-  "workstation"
+  "workstation",
+  "section_break_vnoa",
+  "hour_rate",
+  "base_hour_rate",
+  "column_break_lfpu",
+  "batch_size",
+  "set_cost_based_on_bom_qty",
+  "section_break_ocrj",
+  "rate",
+  "base_rate",
+  "column_break_llux",
+  "amount",
+  "base_amount",
+  "total_required_amount"
  ],
  "fields": [
   {
@@ -105,13 +118,76 @@
    "fieldname": "total_required_time_in_mins",
    "fieldtype": "Float",
    "label": "Total Required Time"
+  },
+  {
+   "fieldname": "section_break_vnoa",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "hour_rate",
+   "fieldtype": "Currency",
+   "label": "Hour Rate"
+  },
+  {
+   "fieldname": "base_hour_rate",
+   "fieldtype": "Currency",
+   "label": "Base Hour Rate (Company Currency)"
+  },
+  {
+   "fieldname": "column_break_lfpu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "batch_size",
+   "fieldtype": "Int",
+   "label": "Batch Size"
+  },
+  {
+   "default": "0",
+   "fieldname": "set_cost_based_on_bom_qty",
+   "fieldtype": "Check",
+   "label": "Set Operating Cost Based On BOM Quantity"
+  },
+  {
+   "fieldname": "section_break_ocrj",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "label": "Rate"
+  },
+  {
+   "fieldname": "base_rate",
+   "fieldtype": "Currency",
+   "label": "Basic Rate (Company Currency)"
+  },
+  {
+   "fieldname": "column_break_llux",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount"
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Amount (Company Currency)"
+  },
+  {
+   "description": "Total cost of this node required to produce the configured BOM quantity of the ROOT node.",
+   "fieldname": "total_required_amount",
+   "fieldtype": "Currency",
+   "label": "Total Required Amount"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-29 10:41:38.264952",
+ "modified": "2026-02-10 14:18:30.197659",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Operation Node",

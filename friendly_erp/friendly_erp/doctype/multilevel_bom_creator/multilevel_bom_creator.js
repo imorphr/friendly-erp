@@ -372,7 +372,10 @@ function add_operation(frm, parent, values) {
             time_in_mins: values.time_in_mins,
             fixed_time: values.fixed_time,
             workstation_type: values.workstation_type,
-            workstation: values.workstation
+            workstation: values.workstation,
+            hour_rate: values.hour_rate,
+            batch_size: values.batch_size,
+            set_cost_based_on_bom_qty: values.set_cost_based_on_bom_qty
         },
         freeze: true,
         freeze_message: __("Adding Operation..."),
@@ -393,7 +396,10 @@ function update_operation(frm, ctx, values) {
             time_in_mins: values.time_in_mins,
             fixed_time: values.fixed_time,
             workstation_type: values.workstation_type,
-            workstation: values.workstation
+            workstation: values.workstation,
+            hour_rate: values.hour_rate,
+            batch_size: values.batch_size,
+            set_cost_based_on_bom_qty: values.set_cost_based_on_bom_qty
         },
         freeze: true,
         freeze_message: __("Updating Operation..."),
@@ -1162,8 +1168,8 @@ class NewChildOperationDialogFactory {
                     fieldname: "workstation",
                     options: "Workstation",
                     reqd: 0,
+                    onchange: () => this.on_workstation_change(dialog)
                 },
-
                 { fieldtype: "Section Break" },
                 {
                     label: operation_time_label,
@@ -1178,7 +1184,24 @@ class NewChildOperationDialogFactory {
                     fieldname: "fixed_time",
                     description: __("Operation time does not depend on quantity to produce")
                 },
-
+                { fieldtype: "Section Break" },
+                {
+                    label: __("Hour Rate"),
+                    fieldtype: "Currency",
+                    fieldname: "hour_rate",
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Batch Size"),
+                    fieldtype: "Int",
+                    fieldname: "batch_size",
+                    default: 1
+                },
+                {
+                    label: __("Set Operating Cost Based On BOM Quantity"),
+                    fieldtype: "Check",
+                    fieldname: "set_cost_based_on_bom_qty",
+                },
             ],
             primary_action_label: this.mode === "ADD" ? __("Create") : __("Update"),
             primary_action: (values) => {
@@ -1195,13 +1218,17 @@ class NewChildOperationDialogFactory {
         dialog.set_value("fixed_time", ctx.fixed_time);
         dialog.set_value("workstation_type", ctx.workstation_type);
         dialog.set_value("workstation", ctx.workstation);
+
+        dialog.set_value("hour_rate", ctx.hour_rate);
+        dialog.set_value("batch_size", ctx.batch_size);
+        dialog.set_value("set_cost_based_on_bom_qty", ctx.set_cost_based_on_bom_qty);
     }
 
     on_operation_change(dialog) {
         const operation = dialog.get_value("operation");
         if (!operation) {
-            dialog.set_value("workstation_type", r.message.default_workstation_type);
-            dialog.set_value("workstation", r.message.default_workstation);
+            dialog.set_value("workstation_type", null);
+            dialog.set_value("workstation", null);
             return;
         }
 
@@ -1221,9 +1248,36 @@ class NewChildOperationDialogFactory {
         });
     }
 
+    on_workstation_change(dialog) {
+        this.set_hour_rate_from_source(dialog);
+    }
+
     on_workstation_type_change(dialog) {
+        this.set_hour_rate_from_source(dialog);
+    }
+
+    set_hour_rate_from_source(dialog) {
+        const workstation = dialog.get_value("workstation");
         const workstation_type = dialog.get_value("workstation_type");
-        dialog.set_df_property("workstation", "hidden", workstation_type ? true : false);
+        if (!workstation && !workstation_type) {
+            return;
+        }
+
+        const doctype = workstation ? "Workstation" : "Workstation Type";
+        const name = workstation ? workstation : workstation_type;
+
+        frappe.db.get_value(doctype, name, "hour_rate")
+            .then(r => {
+                if (r?.message?.hour_rate != null) {
+                    let hour_rate = r.message.hour_rate;
+
+                    const conversion_rate = this.frm?.doc?.conversion_rate;
+                    if (conversion_rate && conversion_rate > 0) {
+                        hour_rate = hour_rate / conversion_rate;
+                    }
+                    dialog.set_value("hour_rate", hour_rate);
+                }
+            });
     }
 
     get_title() {
