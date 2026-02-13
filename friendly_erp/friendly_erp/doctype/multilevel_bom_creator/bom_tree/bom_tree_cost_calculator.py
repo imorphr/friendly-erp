@@ -95,16 +95,21 @@ class BOMTreeCostCalculator:
 
         BOMTreeCostCalculationHelper.apply_base_rate_to_item_and_sub_assembly_node(
             node, base_rate, self.bom_creator.conversion_rate)
-        
+
     def _calculate_operation_node_cost(self, node: BOMTreeOperationNode):
-        pass
+        fetch_fresh = self.should_fetch_fresh_rate_for_node(node)
+        base_rate = BOMTreeCostCalculationHelper.get_operation_base_rate_in_company_currency_according_to_required_uom(
+            node, fetch_fresh, self.bom_creator.conversion_rate)
+        BOMTreeCostCalculationHelper.apply_base_rate_to_operation_node(
+            node, base_rate, self.bom_creator.conversion_rate)
 
     def update_item_map(self, node: BOMTreeCostAwareNode):
         if self.item_map_to_update and node.node_type in ["ITEM", "SUB_ASSEMBLY", "OPERATION"]:
             item_node = self.item_map_to_update.get(node.node_unique_id)
             if item_node:
                 if node.node_type == "OPERATION":
-                    self._update_additional_operation_cost_fields(item_node, node)
+                    self._update_additional_operation_cost_fields(
+                        item_node, node)
 
                 item_node.rate = node.rate
                 item_node.amount = node.amount
@@ -138,7 +143,8 @@ class BOMTreeCostCalculationHelper:
         if (bom_creator.rm_cost_as_per == "Price List"):
             # For Price List erpnext standard get_bom_item_rate method is not taking actual value of plc_conversion_rate
             # And taking it as 1. So in case of "Price List", need to multiply rate with plc_conversion_rate.
-            rate_in_company_currency_according_to_required_uom = flt(rate_in_company_currency_according_to_required_uom) * flt(bom_creator.plc_conversion_rate or 1.0)
+            rate_in_company_currency_according_to_required_uom = flt(
+                rate_in_company_currency_according_to_required_uom) * flt(bom_creator.plc_conversion_rate or 1.0)
 
         # For non stock item use provided existing rate if standard get_bom_item_rate method does not return value
         if not is_stock_item and not rate_in_company_currency_according_to_required_uom and existing_base_rate:
@@ -159,7 +165,7 @@ class BOMTreeCostCalculationHelper:
     def get_new_bom_base_rate_in_company_currency_according_to_required_uom(cls, node: BOMTreeSubAssemblyNode) -> float:
         total_child_base_amount = 0.0
         for child in node.children:
-            if child.node_type in ["ITEM", "SUB_ASSEMBLY"]:
+            if child.node_type in ["ITEM", "SUB_ASSEMBLY", "OPERATION"]:
                 total_child_base_amount += child.base_amount or 0.0
 
         batch_size_in_required_uom = node.own_batch_size / \
@@ -167,6 +173,40 @@ class BOMTreeCostCalculationHelper:
         base_rate = total_child_base_amount / \
             (batch_size_in_required_uom or 1.0)
         return base_rate or 0.0
+
+    @classmethod
+    def get_operation_base_rate_in_company_currency_according_to_required_uom(cls, node: BOMTreeOperationNode, fetch_ws_hour_rate: bool, conversion_rate: float) -> float:
+        hour_rate = flt(node.hour_rate)
+        base_hour_rate = flt(node.hour_rate) * flt(conversion_rate or 1.0)
+
+        if fetch_ws_hour_rate:
+            # Priority: Workstation > Workstation Type
+            if node.workstation:
+                base_hour_rate = flt(
+                    frappe.get_cached_value(
+                        "Workstation", node.workstation, "hour_rate")
+                )
+            if not hour_rate and node.workstation_type:
+                base_hour_rate = flt(
+                    frappe.get_cached_value(
+                        "Workstation Type", node.workstation_type, "hour_rate")
+                )
+
+            hour_rate = base_hour_rate / (conversion_rate or 1.0)
+
+        # Keep node fields in sync with freshly fetched master data
+        node.base_hour_rate = flt(base_hour_rate)
+        node.hour_rate = flt(hour_rate)
+
+        operating_cost = flt(base_hour_rate) * flt(node.time_in_mins) / 60.0
+        parent_node: BOMTreeSubAssemblyNode = node.parent_node_ref
+        # node.batch_size as well as parent_node.own_batch_size both are in stock uom
+        batch_size_in_stock_uom = node.batch_size if node.set_cost_based_on_bom_qty else parent_node.own_batch_size
+        operating_cost_company_currency_stock_uom = flt(operating_cost) / \
+            (batch_size_in_stock_uom or 1.0)
+        operating_cost_company_currency_required_uom = flt(operating_cost_company_currency_stock_uom) * \
+            flt(parent_node.conversion_factor or 1.0)
+        return operating_cost_company_currency_required_uom or 0.0
 
     @classmethod
     def apply_base_rate_to_item_and_sub_assembly_node(cls, node: BOMTreeItemNode, base_rate: float, conversion_rate: float) -> None:
@@ -177,3 +217,20 @@ class BOMTreeCostCalculationHelper:
         node.rate = flt(node.base_rate / conversion_rate)
         node.amount = flt(node.base_amount / conversion_rate)
         node.total_required_amount = flt(node.rate * node.total_required_qty)
+
+    @classmethod
+    def apply_base_rate_to_operation_node(cls, node: BOMTreeItemNode, base_rate: float, conversion_rate: float) -> None:
+        conversion_rate = conversion_rate or 1.0
+        node.base_rate = base_rate
+        parent_bom_node: BOMTreeSubAssemblyNode = node.parent_node_ref
+
+        # Service/operation nodes do not carry their own quantity, so amount is derived
+        # from the parent BOM batch size. Since base_rate is in required UOM while
+        # parent batch size is in stock UOM, convert it using the parent conversion factor.
+        parent_bom_qty_in_required_uom = parent_bom_node.own_batch_size / parent_bom_node.conversion_factor
+        node.base_amount = flt(
+            base_rate * parent_bom_qty_in_required_uom)
+        node.rate = flt(node.base_rate / conversion_rate)
+        node.amount = flt(node.base_amount / conversion_rate)
+        node.total_required_amount = flt(node.rate * parent_bom_node.total_required_qty)
+        

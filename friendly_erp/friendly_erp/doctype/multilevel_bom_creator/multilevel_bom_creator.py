@@ -510,7 +510,8 @@ class MultilevelBOMCreator(Document):
                 f"Adding child operations is not allowed for this node."
             )
 
-        self.update_quantity_time_and_cost(tree, {unique_id})
+        # Passing None as fetch_fresh_rate_for_node_ids as we here expect hour rate should be provided by client 
+        self.update_quantity_time_and_cost(tree, None)
 
     def update_operation(
         self,
@@ -548,8 +549,7 @@ class MultilevelBOMCreator(Document):
         operation_doc.set_cost_based_on_bom_qty = set_cost_based_on_bom_qty
 
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
-        self.update_quantity_time_and_cost(
-            tree, {operation_doc.node_unique_id})
+        self.update_quantity_time_and_cost(tree, None)
 
     def duplicate_bom_structure(self, node_unique_id: str) -> None:
         self.ensure_draft_status()

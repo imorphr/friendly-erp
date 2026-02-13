@@ -1249,26 +1249,22 @@ class NewChildOperationDialogFactory {
     }
 
     on_workstation_change(dialog) {
-        const workstation = dialog.get_value("workstation");
-
-        if (workstation) {
-            // Highest priority
-            this.set_hour_rate_from_source(dialog, "Workstation", workstation);
-        }
+        this.set_hour_rate_from_source(dialog);
     }
 
     on_workstation_type_change(dialog) {
-        const workstation_type = dialog.get_value("workstation_type");
-        const workstation = dialog.get_value("workstation");
-
-        // Only apply fallback if workstation is NOT selected
-        if (!workstation && workstation_type) {
-            this.set_hour_rate_from_source(dialog, "Workstation Type", workstation_type);
-        }
+        this.set_hour_rate_from_source(dialog);
     }
 
-    set_hour_rate_from_source(dialog, doctype, name) {
-        if (!name) return;
+    set_hour_rate_from_source(dialog) {
+        const workstation = dialog.get_value("workstation");
+        const workstation_type = dialog.get_value("workstation_type");
+        if (!workstation && !workstation_type) {
+            return;
+        }
+
+        const doctype = workstation ? "Workstation" : "Workstation Type";
+        const name = workstation ? workstation : workstation_type;
 
         frappe.db.get_value(doctype, name, "hour_rate")
             .then(r => {
