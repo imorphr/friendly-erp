@@ -97,7 +97,14 @@ class BOMCreatorTreeBuilder:
             parent_node.add_child(child_node)
             sub_operation_tree = OperationTreeBuilder(item.operation).create()
             sub_operation_tree.mark_all_nodes_as_projected()
+            sub_operation_tree_node_count_before_merge = sub_operation_tree.get_total_node_count()
             self.tree.merge_another_tree(child_node, sub_operation_tree, True)
+            # If operation tree had more than one node, that means it had sub-operations.
+            # Nodes originating from the BOM Creator document already have time but
+            # projected sub-operation nodes are raw and lack derived time value.
+            # So in that case calculate time for suboperation nodes.
+            if (sub_operation_tree_node_count_before_merge > 1):
+                BOMTreeQtyTimeCalculator(parent_node, None).calculate()
 
 
     def _add_child_item_nodes_recursively(self, parent_node: BOMTreeNode):

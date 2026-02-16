@@ -83,13 +83,13 @@ class BOMTreeNode:
 
 @dataclass
 class BOMTreeCostAwareNode(BOMTreeNode):
-    rate: float = 0.0
-    amount: float = 0.0
-    base_rate: float = 0.0
-    base_amount: float = 0.0
+    rate: float = None
+    amount: float = None
+    base_rate: float = None
+    base_amount: float = None
     # Root-relative cost (derived):Total cost of this node required to produce
     # the configured BOM quantity of the ROOT node.
-    total_required_amount: float = 0.0
+    total_required_amount: float = None
 
 
 @dataclass
@@ -420,6 +420,13 @@ class BOMTree:
     def ensure_root_exists(self):
         if not self.root:
             frappe.throw("Root node is not present")
+
+    def get_total_node_count(self) -> int:
+        """
+        Return total number of nodes present in the tree.
+        """
+        self.ensure_root_exists()
+        return len(self.node_map)
 
 # ===============================================================================
 #                             Node Action Flag Initializer

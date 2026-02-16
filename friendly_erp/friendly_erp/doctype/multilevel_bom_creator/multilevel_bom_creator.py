@@ -327,7 +327,7 @@ class MultilevelBOMCreator(Document):
             frappe.throw(
                 "Quantity per parent BOM run must be greater than zero.")
 
-        if not bom_no and not own_batch_size > 0:
+        if not bom_no and not own_batch_size:
             frappe.throw(
                 "Own BOM Quantity must be provided for new sub-assembly.")
 
@@ -553,7 +553,7 @@ class MultilevelBOMCreator(Document):
 
     def duplicate_bom_structure(self, node_unique_id: str) -> None:
         self.ensure_draft_status()
-        tree: BOMTree = BOMCreatorTreeBuilder(self).create()
+        tree: BOMTree = BOMCreatorTreeBuilder(self, True).create()
         node: BOMTreeSubAssemblyNode = tree.find_node_by_unique_id(
             node_unique_id)
         if not node:

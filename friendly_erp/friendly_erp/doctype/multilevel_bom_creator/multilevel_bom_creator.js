@@ -90,7 +90,8 @@ function show_add_item_dialog(frm, parent, full_data_ctx) {
         },
         "ITEM",
         "ADD",
-        parent
+        parent,
+        null
     ).create();
     dialog.show();
 }
@@ -104,7 +105,8 @@ function show_add_new_sub_assembly_dialog(frm, parent, full_data_ctx) {
         },
         "NEW_SUB_ASSEMBLY",
         "ADD",
-        parent
+        parent,
+        null
     ).create();
     dialog.show();
 }
@@ -118,7 +120,8 @@ function show_add_existing_sub_assembly_dialog(frm, parent, full_data_ctx) {
         },
         "EXISTING_SUB_ASSEMBLY",
         "ADD",
-        parent
+        parent,
+        null
     ).create();
     dialog.show();
 }
@@ -129,7 +132,9 @@ function show_add_operation_dialog(frm, parent, full_data_ctx) {
         dialog.hide();
     },
         "ADD",
-        parent).create();
+        parent,
+        null
+    ).create();
     dialog.show();
 }
 
@@ -149,7 +154,7 @@ function show_update_dialog(frm, ctx, full_data_ctx) {
 }
 
 function show_update_item_dialog(frm, ctx, parent) {
-    const dlg_factory = new NewChildItemDialogFactory(
+    const dialog = new NewChildItemDialogFactory(
         frm,
         (values, frm) => {
             update_item(frm, ctx, values);
@@ -157,15 +162,14 @@ function show_update_item_dialog(frm, ctx, parent) {
         },
         "ITEM",
         "EDIT",
-        parent
-    );
-    const dialog = dlg_factory.create();
-    dlg_factory.prefill_item_dialog(dialog, ctx);
+        parent,
+        ctx
+    ).create();
     dialog.show();
 }
 
 function show_update_new_sub_assembly_dialog(frm, ctx, parent) {
-    const dlg_factory = new NewChildItemDialogFactory(
+    const dialog = new NewChildItemDialogFactory(
         frm,
         (values, frm) => {
             update_new_sub_assembly(frm, ctx, values);
@@ -173,15 +177,14 @@ function show_update_new_sub_assembly_dialog(frm, ctx, parent) {
         },
         "NEW_SUB_ASSEMBLY",
         "EDIT",
-        parent
-    );
-    const dialog = dlg_factory.create();
-    dlg_factory.prefill_item_dialog(dialog, ctx);
+        parent,
+        ctx
+    ).create();
     dialog.show();
 }
 
 function show_update_existing_sub_assembly_dialog(frm, ctx, parent) {
-    const dlg_factory = new NewChildItemDialogFactory(
+    const dialog = new NewChildItemDialogFactory(
         frm,
         (values, frm) => {
             update_existing_sub_assembly(frm, ctx, values);
@@ -189,22 +192,21 @@ function show_update_existing_sub_assembly_dialog(frm, ctx, parent) {
         },
         "EXISTING_SUB_ASSEMBLY",
         "EDIT",
-        parent
-    );
-    const dialog = dlg_factory.create();
-    dlg_factory.prefill_item_dialog(dialog, ctx);
+        parent,
+        ctx
+    ).create();
     dialog.show();
 }
 
 function show_update_operation_dialog(frm, ctx, parent) {
-    const dlg_factory = new NewChildOperationDialogFactory(frm, (values, frm) => {
+    const dialog = new NewChildOperationDialogFactory(frm, (values, frm) => {
         update_operation(frm, ctx, values);
         dialog.hide();
     },
         "EDIT",
-        parent);
-    const dialog = dlg_factory.create();
-    dlg_factory.prefill_operation_dialog(dialog, ctx);
+        parent,
+        ctx
+    ).create();
     dialog.show();
 }
 
@@ -929,12 +931,13 @@ class NewFormDialogFactory {
 }
 
 class NewChildItemDialogFactory {
-    constructor(frm, action, item_type, mode, parent_node) {
+    constructor(frm, action, item_type, mode, parent_node, values_to_prefill) {
         this.frm = frm;
         this.action = action;
         this.item_type = item_type; // item_type can be 'ITEM', 'NEW_SUB_ASSEMBLY', or 'EXISTING_SUB_ASSEMBLY'
         this.mode = mode; // mode can be 'ADD' or 'EDIT'
         this.parent_node = parent_node;
+        this.values_to_prefill = values_to_prefill;
     }
 
     create() {
@@ -1018,12 +1021,33 @@ class NewChildItemDialogFactory {
 
         if (fields.some(f => f.fieldname === "item_code")) {
             dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
-            dialog.fields_dict.item_code.df.onchange = () => self.on_item_change(dialog);
         }
 
         if (this.item_type === "EXISTING_SUB_ASSEMBLY") {
-            dialog.fields_dict.bom_no.df.onchange = () => self.on_bom_change(dialog);
+            // Show only submitted BOMs
+            dialog.fields_dict.bom_no.get_query = function () {
+                return {
+                    filters: {
+                        docstatus: 1
+                    }
+                };
+            };
         }
+
+        if (this.values_to_prefill) {
+            this.prefill_item_dialog(dialog, this.values_to_prefill)
+        }
+
+        // Set on change handlers after prefilling the values
+        setTimeout(() => {
+            if (fields.some(f => f.fieldname === "item_code")) {
+                dialog.fields_dict.item_code.df.onchange = () => self.on_item_change(dialog);
+            }
+
+            if (this.item_type === "EXISTING_SUB_ASSEMBLY") {
+                dialog.fields_dict.bom_no.df.onchange = () => self.on_bom_change(dialog);
+            }
+        }, 100);
         return dialog;
     }
 
@@ -1052,9 +1076,6 @@ class NewChildItemDialogFactory {
     }
 
     on_item_change(dialog) {
-        if (this.mode === "EDIT") {
-            return;
-        }
         const item_code = dialog.get_value("item_code");
         if (!item_code) {
             return;
@@ -1077,9 +1098,6 @@ class NewChildItemDialogFactory {
     }
 
     on_bom_change(dialog) {
-        if (this.mode === "EDIT") {
-            return;
-        }
         const bom_no = dialog.get_value("bom_no");
         if (!bom_no) {
             return;
@@ -1129,17 +1147,19 @@ class NewChildItemDialogFactory {
 }
 
 class NewChildOperationDialogFactory {
-    constructor(frm, action, mode, parent_node) {
+    constructor(frm, action, mode, parent_node, values_to_prefill) {
         this.frm = frm;
         this.action = action;
         this.mode = mode;   // mode can be 'ADD' or 'EDIT'
         this.parent_node = parent_node;
+        this.values_to_prefill = values_to_prefill;
     }
 
     create() {
-        const operation_time_label = this.parent_node
-            ? __(`Operation Time Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.uom}) of ${this.parent_node.item_code}`)
-            : __("Operation Time");
+        const self = this;
+        // const operation_time_label = this.parent_node
+        //     ? __(`Operation Time Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.uom}) of ${this.parent_node.item_code}`)
+        //     : __("Operation Time");
         const dialog = new frappe.ui.Dialog({
             title: this.get_title(),
             fields: [
@@ -1149,8 +1169,7 @@ class NewChildOperationDialogFactory {
                     fieldname: "operation",
                     options: "Operation",
                     reqd: 1,
-                    read_only: this.mode === "EDIT" ? 1 : 0,
-                    onchange: () => this.on_operation_change(dialog)
+                    read_only: this.mode === "EDIT" ? 1 : 0
                 },
                 { fieldtype: "Section Break" },
                 {
@@ -1158,8 +1177,7 @@ class NewChildOperationDialogFactory {
                     fieldtype: "Link",
                     fieldname: "workstation_type",
                     options: "Workstation Type",
-                    reqd: 0,
-                    onchange: () => this.on_workstation_type_change(dialog)
+                    reqd: 0
                 },
                 { fieldtype: "Column Break" },
                 {
@@ -1167,12 +1185,11 @@ class NewChildOperationDialogFactory {
                     fieldtype: "Link",
                     fieldname: "workstation",
                     options: "Workstation",
-                    reqd: 0,
-                    onchange: () => this.on_workstation_change(dialog)
+                    reqd: 0
                 },
                 { fieldtype: "Section Break" },
                 {
-                    label: operation_time_label,
+                    label: __("Operation Time"),
                     fieldtype: "Float",
                     fieldname: "time_in_mins",
                     reqd: 1,
@@ -1208,6 +1225,17 @@ class NewChildOperationDialogFactory {
                 this.action(values, this.frm);
             },
         });
+
+        if (this.values_to_prefill) {
+            this.prefill_operation_dialog(dialog, this.values_to_prefill)
+        }
+
+        // Set on change handlers after prefilling the values and outside of current call stack
+        setTimeout(() => {
+            dialog.fields_dict.operation.df.onchange = () => self.on_operation_change(dialog);
+            dialog.fields_dict.workstation_type.df.onchange = () => self.on_workstation_type_change(dialog);
+            dialog.fields_dict.workstation.df.onchange = () => self.on_workstation_change(dialog);
+        }, 100);
 
         return dialog;
     }
