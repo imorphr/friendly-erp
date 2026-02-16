@@ -3,7 +3,8 @@ from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree 
     BOMTreeNode, 
     BOMTreeItemNode, 
     BOMTreeOperationNode, 
-    BOMTreeSubAssemblyNode
+    BOMTreeSubAssemblyNode,
+    BOMTreeCostAwareNode
 )
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_item_node.multilevel_bom_creator_item_node import MultilevelBOMCreatorItemNode
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator_operation_node.multilevel_bom_creator_operation_node import MultilevelBOMCreatorOperationNode
@@ -190,6 +191,9 @@ class ExistingBOMTreeNodeFactory:
             fixed_time=bom_operation.fixed_time,
             workstation_type=bom_operation.workstation_type,
             workstation=bom_operation.workstation,
+            hour_rate=bom_operation.hour_rate,
+            batch_size=bom_operation.batch_size,
+            set_cost_based_on_bom_qty=bom_operation.set_cost_based_on_bom_qty,
         )
     
 class BOMTreeNodeToCreatorItemConverter:
@@ -211,14 +215,20 @@ class BOMTreeNodeToCreatorItemConverter:
 
         doc: MultilevelBOMCreatorItemNode = frappe.new_doc("Multilevel BOM Creator Item Node")
 
-        doc.node_type = node.node_type
-        doc.node_unique_id = node.node_unique_id
-        doc.parent_node_unique_id = node.parent_node_ref.node_unique_id
-        doc.sequence = node.sequence
+        BOMTreeNodeToCreatorItemConverter.assign_id_sequence_and_type(doc, node)
         doc.item_code = node.item_code
+        doc.do_not_explode = node.do_not_explode
+        doc.is_stock_item = node.is_stock_item
+
         doc.component_qty_per_parent_bom_run = node.component_qty_per_parent_bom_run
         doc.uom = node.uom
-        doc.do_not_explode = node.do_not_explode
+        doc.component_stock_qty_per_parent_bom_run = node.component_stock_qty_per_parent_bom_run
+        doc.stock_uom = node.stock_uom
+        doc.conversion_factor = node.conversion_factor
+        doc.total_required_qty = node.total_required_qty
+
+        BOMTreeNodeToCreatorItemConverter.assign_rate_and_amount(doc, node)
+        
         return doc
 
     @staticmethod
@@ -232,6 +242,7 @@ class BOMTreeNodeToCreatorItemConverter:
         doc.bom_no = node.bom_no
         doc.is_preexisting_bom = node.is_preexisting_bom
         doc.own_batch_size = node.own_batch_size
+        doc.bom_run_count = node.bom_run_count
         return doc
 
     # ---------------------------------------------------------------------
@@ -245,16 +256,37 @@ class BOMTreeNodeToCreatorItemConverter:
         if node.node_type != "OPERATION":
             frappe.throw("Invalid node type for operation conversion")
 
-        doc = frappe.new_doc("Multilevel BOM Creator Operation Node")
+        doc: MultilevelBOMCreatorOperationNode = frappe.new_doc("Multilevel BOM Creator Operation Node")
 
-        doc.node_type = "OPERATION"
+        BOMTreeNodeToCreatorItemConverter.assign_id_sequence_and_type(doc, node)
+        doc.operation = node.operation
+        doc.time_in_mins = node.time_in_mins
+        doc.fixed_time = node.fixed_time
+        doc.total_required_time_in_mins = node.total_required_time_in_mins
+
+        doc.workstation_type = node.workstation_type
+        doc.workstation = node.workstation
+
+        doc.hour_rate = node.hour_rate
+        doc.base_hour_rate = node.base_hour_rate
+        doc.batch_size = node.batch_size
+        doc.set_cost_based_on_bom_qty = node.set_cost_based_on_bom_qty
+
+        BOMTreeNodeToCreatorItemConverter.assign_rate_and_amount(doc, node)
+        
+        return doc
+    
+    @staticmethod
+    def assign_id_sequence_and_type(doc: MultilevelBOMCreatorItemNode | MultilevelBOMCreatorOperationNode, node: BOMTreeNode) -> None:
+        doc.node_type = node.node_type
         doc.node_unique_id = node.node_unique_id
         doc.parent_node_unique_id = node.parent_node_ref.node_unique_id
         doc.sequence = node.sequence
 
-        doc.operation = node.operation
-        doc.time_in_mins = node.time_in_mins
-        doc.fixed_time = node.fixed_time
-        doc.workstation_type = node.workstation_type
-        doc.workstation = node.workstation
-        return doc
+    @staticmethod
+    def assign_rate_and_amount(doc: MultilevelBOMCreatorItemNode | MultilevelBOMCreatorOperationNode, node: BOMTreeCostAwareNode) -> None:
+        doc.rate = node.rate
+        doc.amount = node.amount
+        doc.base_rate = node.base_rate
+        doc.base_amount = node.base_amount
+        doc.total_required_amount = node.total_required_amount

@@ -141,12 +141,13 @@ class BOMTreeQtyTimeCalculator:
                     parent_bom_run_count * node.time_in_mins, self.PRECISION)
 
     def update_item_map(self, node: BOMTreeNode):
-        if self.item_map_to_update and node.node_type in ["ITEM", "SUB_ASSEMBLY"]:
-            item_node = self.item_map_to_update.get(node.node_unique_id)
-            if item_node:
-                item_node.bom_run_count = node.bom_run_count if item_node.node_type == "SUB_ASSEMBLY" else None
-                item_node.total_required_qty = node.total_required_qty
-        elif node.node_type in ["OPERATION", "SUB_OPERATION"]:
-            operation_node = self.item_map_to_update.get(node.node_unique_id)
-            if operation_node:
-                operation_node.total_required_time_in_mins = node.total_required_time_in_mins
+        if self.item_map_to_update:
+            if node.node_type in ["ITEM", "SUB_ASSEMBLY"]:
+                item_node = self.item_map_to_update.get(node.node_unique_id)
+                if item_node:
+                    item_node.bom_run_count = node.bom_run_count if item_node.node_type == "SUB_ASSEMBLY" else None
+                    item_node.total_required_qty = node.total_required_qty
+            elif node.node_type in ["OPERATION", "SUB_OPERATION"]:
+                operation_node = self.item_map_to_update.get(node.node_unique_id)
+                if operation_node:
+                    operation_node.total_required_time_in_mins = node.total_required_time_in_mins
