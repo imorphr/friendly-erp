@@ -440,7 +440,7 @@ class BOMTreeNodeActionFlagInitializer:
             # This is the root node
             node.can_add_child_item = True
             node.can_add_child_operation = True
-            node.can_edit = True
+            node.can_edit = False # Root node cannot be edited
             node.can_delete = False  # Root node cannot be deleted
             node.can_duplicate_bom = False
             return
