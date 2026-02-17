@@ -126,12 +126,14 @@
   {
    "fieldname": "hour_rate",
    "fieldtype": "Currency",
-   "label": "Hour Rate"
+   "label": "Hour Rate",
+   "options": "currency"
   },
   {
    "fieldname": "base_hour_rate",
    "fieldtype": "Currency",
-   "label": "Base Hour Rate (Company Currency)"
+   "label": "Base Hour Rate (Company Currency)",
+   "options": "Company:company:default_currency"
   },
   {
    "fieldname": "column_break_lfpu",
@@ -155,12 +157,14 @@
   {
    "fieldname": "rate",
    "fieldtype": "Currency",
-   "label": "Rate"
+   "label": "Rate",
+   "options": "currency"
   },
   {
    "fieldname": "base_rate",
    "fieldtype": "Currency",
-   "label": "Basic Rate (Company Currency)"
+   "label": "Basic Rate (Company Currency)",
+   "options": "Company:company:default_currency"
   },
   {
    "fieldname": "column_break_llux",
@@ -169,25 +173,28 @@
   {
    "fieldname": "amount",
    "fieldtype": "Currency",
-   "label": "Amount"
+   "label": "Amount",
+   "options": "currency"
   },
   {
    "fieldname": "base_amount",
    "fieldtype": "Currency",
-   "label": "Amount (Company Currency)"
+   "label": "Amount (Company Currency)",
+   "options": "Company:company:default_currency"
   },
   {
    "description": "Total cost of this node required to produce the configured BOM quantity of the ROOT node.",
    "fieldname": "total_required_amount",
    "fieldtype": "Currency",
-   "label": "Total Required Amount"
+   "label": "Total Required Amount",
+   "options": "currency"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-10 14:18:30.197659",
+ "modified": "2026-02-17 06:30:23.935073",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Operation Node",

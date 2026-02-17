@@ -94,7 +94,8 @@
    "fieldname": "rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate"
+   "label": "Rate",
+   "options": "currency"
   },
   {
    "columns": 1,
@@ -223,7 +224,8 @@
   {
    "fieldname": "base_rate",
    "fieldtype": "Currency",
-   "label": "Basic Rate (Company Currency)"
+   "label": "Basic Rate (Company Currency)",
+   "options": "Company:company:default_currency"
   },
   {
    "fieldname": "column_break_dlcx",
@@ -232,12 +234,14 @@
   {
    "fieldname": "amount",
    "fieldtype": "Currency",
-   "label": "Amount"
+   "label": "Amount",
+   "options": "currency"
   },
   {
    "fieldname": "base_amount",
    "fieldtype": "Currency",
-   "label": "Amount (Company Currency)"
+   "label": "Amount (Company Currency)",
+   "options": "Company:company:default_currency"
   },
   {
    "fieldname": "column_break_wwvl",
@@ -276,14 +280,15 @@
    "description": "Total cost of this node required to produce the configured BOM quantity of the ROOT node.",
    "fieldname": "total_required_amount",
    "fieldtype": "Currency",
-   "label": "Total Required Amount"
+   "label": "Total Required Amount",
+   "options": "currency"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-10 11:39:00.305788",
+ "modified": "2026-02-17 06:26:41.793894",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Item Node",
