@@ -49,6 +49,7 @@
  ],
  "fields": [
   {
+   "columns": 1,
    "fieldname": "item_code",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -101,7 +102,6 @@
    "columns": 1,
    "fieldname": "sequence",
    "fieldtype": "Int",
-   "in_list_view": 1,
    "label": "Sequence"
   },
   {
@@ -163,9 +163,11 @@
    "label": "Quality Inspection Required"
   },
   {
+   "columns": 1,
    "default": "ITEM",
    "fieldname": "node_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Node Type",
    "options": "ITEM\nSUB_ASSEMBLY",
    "reqd": 1
@@ -194,9 +196,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "columns": 1,
    "default": "0",
    "fieldname": "is_preexisting_bom",
    "fieldtype": "Check",
+   "in_list_view": 1,
    "label": "Is Pre-existing BOM",
    "read_only": 1
   },
@@ -205,9 +209,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "columns": 1,
    "description": "Quantity needed for one execution of parent BOM",
    "fieldname": "component_qty_per_parent_bom_run",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Component Qty"
   },
   {
@@ -232,8 +238,10 @@
    "fieldtype": "Column Break"
   },
   {
+   "columns": 1,
    "fieldname": "amount",
    "fieldtype": "Currency",
+   "in_list_view": 1,
    "label": "Amount",
    "options": "currency"
   },
@@ -264,9 +272,11 @@
    "label": "Conversion Factor"
   },
   {
+   "columns": 1,
    "description": "Total quantity of this item required to produce the configured BOM quantity of the ROOT node.",
    "fieldname": "total_required_qty",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Required Qty"
   },
   {
@@ -277,9 +287,11 @@
    "label": "BOM Run Count"
   },
   {
+   "columns": 1,
    "description": "Total cost of this node required to produce the configured BOM quantity of the ROOT node.",
    "fieldname": "total_required_amount",
    "fieldtype": "Currency",
+   "in_list_view": 1,
    "label": "Total Required Amount",
    "options": "currency"
   }
@@ -288,7 +300,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-17 06:26:41.793894",
+ "modified": "2026-02-17 06:42:52.755303",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Item Node",
