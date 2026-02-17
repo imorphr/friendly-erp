@@ -75,9 +75,27 @@ function fetch_bom_tree_data(frm, tree_helper) {
         callback: function (r) {
             if (!r.exc && r.message) {
                 tree_helper.render_tree(r.message);
+                const node_id = consume_pending_scroll_node(frm);
+                if (node_id) {
+                    // defer one tick so DataTable finishes DOM paint
+                    setTimeout(() => {
+                        tree_helper.scroll_and_highlight_node(node_id);
+                    }, 100);
+                }
             }
         }
     });
+}
+
+function request_scroll_to_node(frm, node_unique_id) {
+    if (!node_unique_id) return;
+    frm._pending_scroll_node_unique_id = node_unique_id;
+}
+
+function consume_pending_scroll_node(frm) {
+    const id = frm._pending_scroll_node_unique_id;
+    frm._pending_scroll_node_unique_id = null;
+    return id;
 }
 
 //============ Tree item handlers ============
@@ -259,6 +277,7 @@ function add_item(frm, parent, values) {
         freeze_message: __("Adding Item..."),
         callback: function (r) {
             if (!r.exc) {
+                request_scroll_to_node(frm, r?.message?.node_unique_id);
                 frm.reload_doc();
             }
         }
@@ -279,6 +298,7 @@ function update_item(frm, ctx, values) {
         freeze_message: __("Updating Item..."),
         callback: function (r) {
             if (!r.exc) {
+                request_scroll_to_node(frm, ctx.node_unique_id);
                 frm.reload_doc();
             }
         }
@@ -300,6 +320,7 @@ function add_new_sub_assembly(frm, parent, values) {
         freeze_message: __("Adding new Sub-assembly..."),
         callback: function (r) {
             if (!r.exc) {
+                request_scroll_to_node(frm, r?.message?.node_unique_id);
                 frm.reload_doc();
             }
         }
@@ -320,6 +341,7 @@ function update_new_sub_assembly(frm, ctx, values) {
         freeze_message: __("Updating Sub-assembly..."),
         callback: function (r) {
             if (!r.exc) {
+                request_scroll_to_node(frm, ctx.node_unique_id);
                 frm.reload_doc();
             }
         }
@@ -340,6 +362,7 @@ function add_existing_sub_assembly(frm, parent, values) {
         freeze_message: __("Adding existing Sub-assembly..."),
         callback: function (r) {
             if (!r.exc) {
+                request_scroll_to_node(frm, r?.message?.node_unique_id);
                 frm.reload_doc();
             }
         }
@@ -352,12 +375,14 @@ function update_existing_sub_assembly(frm, ctx, values) {
         args: {
             multilevel_bom_creator_name: frm.doc.name,
             node_unique_id: ctx.node_unique_id,
-            component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run
+            component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
+            uom: values.uom
         },
         freeze: true,
         freeze_message: __("Updating existing Sub-assembly..."),
         callback: function (r) {
             if (!r.exc) {
+                request_scroll_to_node(frm, ctx.node_unique_id);
                 frm.reload_doc();
             }
         }
@@ -383,6 +408,7 @@ function add_operation(frm, parent, values) {
         freeze_message: __("Adding Operation..."),
         callback: function (r) {
             if (!r.exc) {
+                request_scroll_to_node(frm, r?.message?.node_unique_id);
                 frm.reload_doc();
             }
         }
@@ -407,6 +433,7 @@ function update_operation(frm, ctx, values) {
         freeze_message: __("Updating Operation..."),
         callback: function (r) {
             if (!r.exc) {
+                request_scroll_to_node(frm, ctx.node_unique_id);
                 frm.reload_doc();
             }
         }
@@ -586,6 +613,21 @@ class BOMTreeHelper {
         });
 
         this.register_row_action_click_handler();
+    }
+
+    scroll_and_highlight_node(node_unique_id) {
+        if (!this.data_table || !node_unique_id) return;
+
+        const rowIndex = (this.data || []).findIndex(d => d.node_unique_id === node_unique_id);
+        if (rowIndex < 0) return;
+        
+        this.data_table.rowmanager.scrollToRow(rowIndex);   // First attempt to bring row to view
+        setTimeout(() => {
+            const rowEl = this.data_table.rowmanager.getRow$(rowIndex);
+            if (!rowEl) return;
+            rowEl.scrollIntoView({ block: "center", inline: "nearest" });   // Second attempt to bring row to view
+            this.data_table.rowmanager.highlightRow(rowIndex, true);     // Highlight row
+        }, 50);
     }
 
     /**
