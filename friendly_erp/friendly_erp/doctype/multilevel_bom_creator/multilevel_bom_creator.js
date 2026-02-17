@@ -442,7 +442,7 @@ class BOMTreeHelper {
 
     get_bom_tree_columns() {
         const self = this;
-        return [
+        const column_list = [
             {
                 name: "Name",
                 id: "display_name",
@@ -507,9 +507,12 @@ class BOMTreeHelper {
             {
                 name: "Total Amount",
                 id: "total_required_amount",
-                width: 100
-            },
-            {
+                width: 115
+            }
+        ];
+
+        if (this.frm.doc.docstatus === 0) { // Actions are available only in draft status
+            column_list.push({
                 name: "",
                 id: "action",
                 width: 40,
@@ -532,8 +535,10 @@ class BOMTreeHelper {
                         </div>
                     `;
                 }
-            }
-        ];
+            });
+        }
+
+        return column_list;
     }
 
     get_node_icon(data) {
@@ -622,6 +627,9 @@ class BOMTreeHelper {
 
 
     is_action_present_for_node(data) {
+        if (this.frm.doc.docstatus !== 0) { // Show actions only for draft
+            return false;
+        }
         if (data.is_projected) {
             return false;
         }
