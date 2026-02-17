@@ -497,17 +497,20 @@ class BOMTreeHelper {
             {
                 name: "Rate",
                 id: "rate",
-                width: 100
+                width: 100,
+                format: (value, row, column, data) => this.format_currency_column(value, data)
             },
             {
                 name: "Amount",
                 id: "amount",
-                width: 100
+                width: 100,
+                format: (value, row, column, data) => this.format_currency_column(value, data)
             },
             {
                 name: "Total Amount",
                 id: "total_required_amount",
-                width: 115
+                width: 115,
+                format: (value, row, column, data) => this.format_currency_column(value, data)
             }
         ];
 
@@ -761,6 +764,11 @@ class BOMTreeHelper {
 
     can_execute_menu_handler() {
         return this.frm.is_new() || !this.frm.is_dirty();
+    }
+
+    format_currency_column(value, data) {
+        if (!value) return "";
+        return format_currency(value, this.frm.doc.currency);
     }
 }
 
