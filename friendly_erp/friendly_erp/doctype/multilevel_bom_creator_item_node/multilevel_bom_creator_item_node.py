@@ -39,7 +39,6 @@ class MultilevelBOMCreatorItemNode(Document):
 		parenttype: DF.Data
 		rate: DF.Currency
 		sequence: DF.Int
-		source_warehouse: DF.Link | None
 		sourced_by_supplier: DF.Check
 		stock_uom: DF.Link | None
 		total_required_amount: DF.Currency

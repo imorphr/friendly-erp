@@ -153,7 +153,7 @@ class TreeToBOMConverter:
         if node.node_type == "ITEM" and not node.is_stock_item:
             bom_item.rate = node.rate
         bom_item.do_not_explode = node.do_not_explode
-        bom_item.source_warehouse = None        # TODO: As of now hardcoding
+        bom_item.source_warehouse = None        # TODO: As of now warehouse not supported. In future it should be exposed in Multilevel BOM Creator UI
         bom_item.allow_alternative_item = node.allow_alternative_item
         bom_item.sourced_by_supplier = node.sourced_by_supplier
 
