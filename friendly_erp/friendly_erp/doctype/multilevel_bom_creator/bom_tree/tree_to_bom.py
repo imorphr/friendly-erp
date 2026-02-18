@@ -132,40 +132,43 @@ class TreeToBOMConverter:
         bom.buying_price_list = self.bom_creator.buying_price_list
         bom.plc_conversion_rate = self.bom_creator.plc_conversion_rate
         bom.price_list_currency = self.bom_creator.price_list_currency
+
+        bom.allow_alternative_item = node.allow_alternative_item
+
         return bom
 
-    def _create_bom_item(self, child: BOMTreeItemNode | BOMTreeSubAssemblyNode):
+    def _create_bom_item(self, node: BOMTreeItemNode | BOMTreeSubAssemblyNode):
         bom_item = frappe.new_doc("BOM Item")
-        bom_item.item_code = child.item_code
-        bom_item.uom = child.uom
-        bom_item.stock_uom = child.stock_uom
-        bom_item.conversion_factor = child.conversion_factor
-        bom_item.qty = child.component_qty_per_parent_bom_run
-        bom_item.stock_qty = child.component_stock_qty_per_parent_bom_run
+        bom_item.item_code = node.item_code
+        bom_item.uom = node.uom
+        bom_item.stock_uom = node.stock_uom
+        bom_item.conversion_factor = node.conversion_factor
+        bom_item.qty = node.component_qty_per_parent_bom_run
+        bom_item.stock_qty = node.component_stock_qty_per_parent_bom_run
         # For only non stock item provide rate, otherwise BOM doctype logic will itself pull
         # proper cost. In Multilevel BOM Creator tree cost is calculated but that is only for
         # user's idea. While creating BOM do not assign those rate/cost values for stock items
         # as BOM doctype logic will calculate it. 
-        if child.node_type == "ITEM" and not child.is_stock_item:
-            bom_item.rate = child.rate
-        bom_item.do_not_explode = child.do_not_explode
+        if node.node_type == "ITEM" and not node.is_stock_item:
+            bom_item.rate = node.rate
+        bom_item.do_not_explode = node.do_not_explode
         bom_item.source_warehouse = None        # TODO: As of now hardcoding
-        bom_item.allow_alternative_item = 0     # TODO: As of now hardcoding
+        bom_item.allow_alternative_item = node.allow_alternative_item
 
-        if child.node_type == "SUB_ASSEMBLY" and isinstance(child, BOMTreeSubAssemblyNode):
-            bom_item.bom_no = child.bom_no
+        if node.node_type == "SUB_ASSEMBLY" and isinstance(node, BOMTreeSubAssemblyNode):
+            bom_item.bom_no = node.bom_no
 
         return bom_item
 
-    def _create_bom_operation(self, child: BOMTreeOperationNode):
+    def _create_bom_operation(self, node: BOMTreeOperationNode):
         operation = frappe.new_doc("BOM Operation")
-        operation.operation = child.operation
-        operation.time_in_mins = child.time_in_mins
-        operation.fixed_time = child.fixed_time
-        operation.sequence_id = child.sequence
-        operation.workstation_type = child.workstation_type
-        operation.workstation = child.workstation
-        operation.hour_rate = child.hour_rate
-        operation.batch_size = child.batch_size
-        operation.set_cost_based_on_bom_qty = child.set_cost_based_on_bom_qty
+        operation.operation = node.operation
+        operation.time_in_mins = node.time_in_mins
+        operation.fixed_time = node.fixed_time
+        operation.sequence_id = node.sequence
+        operation.workstation_type = node.workstation_type
+        operation.workstation = node.workstation
+        operation.hour_rate = node.hour_rate
+        operation.batch_size = node.batch_size
+        operation.set_cost_based_on_bom_qty = node.set_cost_based_on_bom_qty
         return operation

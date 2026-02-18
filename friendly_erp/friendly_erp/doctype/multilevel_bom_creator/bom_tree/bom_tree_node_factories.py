@@ -57,7 +57,8 @@ class BOMCreatorTreeNodeFactory:
             amount=item.amount,
             base_rate=item.base_rate,
             base_amount=item.base_amount,
-            total_required_amount=item.total_required_amount
+            total_required_amount=item.total_required_amount,
+            allow_alternative_item=item.allow_alternative_item
         )
 
     @staticmethod
@@ -84,7 +85,8 @@ class BOMCreatorTreeNodeFactory:
             amount=item.amount,
             base_rate=item.base_rate,
             base_amount=item.base_amount,
-            total_required_amount=item.total_required_amount
+            total_required_amount=item.total_required_amount,
+            allow_alternative_item=item.allow_alternative_item
         )
 
     @staticmethod
@@ -131,6 +133,8 @@ class ExistingBOMTreeNodeFactory:
             internal_name=bom.item,
             display_name=display_name,
 
+            allow_alternative_item=bom.allow_alternative_item,
+
             uom=bom_item.uom if bom_item else bom.uom,
             stock_uom=bom_item.stock_uom if bom_item else bom.uom,
             conversion_factor=bom_item.conversion_factor if bom_item else 1.0,
@@ -160,6 +164,7 @@ class ExistingBOMTreeNodeFactory:
             internal_name=bom_item.item_code,
             display_name=display_name,
             is_stock_item=bom_item.is_stock_item,
+            allow_alternative_item=bom_item.allow_alternative_item,
 
             uom=bom_item.uom,
             stock_uom=bom_item.stock_uom,
@@ -219,6 +224,7 @@ class BOMTreeNodeToCreatorItemConverter:
         doc.item_code = node.item_code
         doc.do_not_explode = node.do_not_explode
         doc.is_stock_item = node.is_stock_item
+        doc.allow_alternative_item = node.allow_alternative_item
 
         doc.component_qty_per_parent_bom_run = node.component_qty_per_parent_bom_run
         doc.uom = node.uom
