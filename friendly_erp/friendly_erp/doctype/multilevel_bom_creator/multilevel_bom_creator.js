@@ -272,7 +272,8 @@ function add_item(frm, parent, values) {
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
             uom: values.uom,
             rate: values.rate,
-            allow_alternative_item: values.allow_alternative_item
+            allow_alternative_item: values.allow_alternative_item,
+            sourced_by_supplier: values.sourced_by_supplier
         },
         freeze: true,
         freeze_message: __("Adding Item..."),
@@ -294,7 +295,8 @@ function update_item(frm, ctx, values) {
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
             uom: values.uom,
             rate: values.rate,
-            allow_alternative_item: values.allow_alternative_item
+            allow_alternative_item: values.allow_alternative_item,
+            sourced_by_supplier: values.sourced_by_supplier
         },
         freeze: true,
         freeze_message: __("Updating Item..."),
@@ -361,7 +363,8 @@ function add_existing_sub_assembly(frm, parent, values) {
             bom_no: values.bom_no,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
             uom: values.uom,
-            allow_alternative_item: values.allow_alternative_item
+            allow_alternative_item: values.allow_alternative_item,
+            sourced_by_supplier: values.sourced_by_supplier
         },
         freeze: true,
         freeze_message: __("Adding existing Sub-assembly..."),
@@ -382,7 +385,8 @@ function update_existing_sub_assembly(frm, ctx, values) {
             node_unique_id: ctx.node_unique_id,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
             uom: values.uom,
-            allow_alternative_item: values.allow_alternative_item
+            allow_alternative_item: values.allow_alternative_item,
+            sourced_by_supplier: values.sourced_by_supplier
         },
         freeze: true,
         freeze_message: __("Updating existing Sub-assembly..."),
@@ -531,7 +535,7 @@ class BOMTreeHelper {
                 name: "Rate",
                 id: "rate",
                 width: 100,
-                format: (value, row, column, data) => this.format_currency_column(value, data)
+                format: (value, row, column, data) => this.format_rate_column(value, data)
             },
             {
                 name: "Amount",
@@ -815,8 +819,20 @@ class BOMTreeHelper {
     }
 
     format_currency_column(value, data) {
-        if (!value) return "";
+        if (value === null || value === undefined) return "";
         return format_currency(value, this.frm.doc.currency);
+    }
+
+    format_rate_column(value, data) {
+        const rate_val = this.format_currency_column(value, data);
+        const is_sourced_by_supplier = data?.sourced_by_supplier || false;
+        const is_zero_rate = value === 0;
+        if (!is_sourced_by_supplier || !is_zero_rate) {
+            return rate_val;
+        }
+
+        const tooltip = __("Rate is 0 because it is soured by supplier");
+        return `<span title="${tooltip}"><i class="fa fa-info-circle text-muted"></i></span> ${rate_val}`;
     }
 }
 
@@ -1030,11 +1046,6 @@ class NewChildItemDialogFactory {
                 read_only: this.mode === "EDIT" ? 1 : 0
             });
         }
-        fields.push({
-            label: __("Allow Alternative Item"),
-            fieldtype: "Check",
-            fieldname: "allow_alternative_item"
-        });
         fields.push({ fieldtype: "Section Break" });
         const component_qty_label = this.parent_node
             ? __(`Component Qty Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.stock_uom}) of ${this.parent_node.item_code}`)
@@ -1080,6 +1091,19 @@ class NewChildItemDialogFactory {
                 fieldname: "stock_uom",
                 options: "UOM",
                 read_only: 1
+            });
+        }
+        fields.push({ fieldtype: "Section Break" });
+        fields.push({
+            label: __("Allow Alternative Item"),
+            fieldtype: "Check",
+            fieldname: "allow_alternative_item"
+        });
+        if (this.item_type === "ITEM" || this.item_type === "EXISTING_SUB_ASSEMBLY") {
+            fields.push({
+                label: __("Sourced by Supplier"),
+                fieldtype: "Check",
+                fieldname: "sourced_by_supplier"
             });
         }
 
@@ -1128,6 +1152,9 @@ class NewChildItemDialogFactory {
         }
 
         dialog.set_value("allow_alternative_item", ctx.allow_alternative_item);
+        if (this.item_type === "ITEM" || this.item_type === "EXISTING_SUB_ASSEMBLY") {
+            dialog.set_value("sourced_by_supplier", ctx.sourced_by_supplier);
+        }
         dialog.set_value("component_qty_per_parent_bom_run", ctx.component_qty_per_parent_bom_run);
         dialog.set_value("uom", ctx.uom);
 

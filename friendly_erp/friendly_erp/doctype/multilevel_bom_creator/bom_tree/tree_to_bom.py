@@ -155,6 +155,7 @@ class TreeToBOMConverter:
         bom_item.do_not_explode = node.do_not_explode
         bom_item.source_warehouse = None        # TODO: As of now hardcoding
         bom_item.allow_alternative_item = node.allow_alternative_item
+        bom_item.sourced_by_supplier = node.sourced_by_supplier
 
         if node.node_type == "SUB_ASSEMBLY" and isinstance(node, BOMTreeSubAssemblyNode):
             bom_item.bom_no = node.bom_no
