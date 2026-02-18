@@ -54,6 +54,9 @@ class TreeToBOMConverter:
 
         self.progress_notifier.done()
 
+        root_bom = self.newly_created_boms.get(self.tree.root.node_unique_id)
+        return root_bom
+
     def _group_nodes_by_depth(self) -> Dict[int, List[BOMTreeNode]]:
         depth_map: Dict[int, List[BOMTreeNode]] = defaultdict(list)
         for node in self.tree.node_map.values():

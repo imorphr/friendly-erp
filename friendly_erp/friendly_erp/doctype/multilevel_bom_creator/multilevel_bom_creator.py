@@ -34,6 +34,7 @@ class MultilevelBOMCreator(Document):
 
         allow_alternative_item: DF.Check
         amended_from: DF.Link | None
+        bom: DF.Link | None
         buying_price_list: DF.Link | None
         company: DF.Link
         company_currency: DF.Link | None
@@ -749,7 +750,8 @@ class MultilevelBOMCreator(Document):
 
         # 2. Convert tree → BOMs
         converter = TreeToBOMConverter(tree, self)
-        converter.convert()
+        root_bom_name = converter.convert()
+        self.bom = root_bom_name
 
         # 3. Persist bom_no back to child table
         node_id_to_bom = converter.newly_created_boms or {}
