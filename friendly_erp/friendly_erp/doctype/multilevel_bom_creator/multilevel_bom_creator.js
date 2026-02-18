@@ -949,7 +949,6 @@ class NewFormDialogFactory {
             },
         });
 
-        dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
         self.set_currency(dialog);
         return dialog;
     }
@@ -1092,10 +1091,6 @@ class NewChildItemDialogFactory {
                 this.action(values, this.frm);
             }
         });
-
-        if (fields.some(f => f.fieldname === "item_code")) {
-            dialog.fields_dict.item_code.get_query = "erpnext.controllers.queries.item_query";
-        }
 
         if (this.item_type === "EXISTING_SUB_ASSEMBLY") {
             // Show only submitted BOMs

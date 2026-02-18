@@ -123,6 +123,7 @@ class TreeToBOMConverter:
         bom.company = self.bom_creator.company
         bom.item = node.item_code
         bom.bom_type = "Production"  # TODO: As of now hardcoding
+        bom.set_rate_of_sub_assembly_item_based_on_bom = 1 # For simplicity, always set rate of sub-assembly based on BOM
         bom.uom = node.stock_uom    # BOM uom is always stock_uom of the item
         bom.quantity = node.own_batch_size
         bom.rm_cost_as_per = self.bom_creator.rm_cost_as_per

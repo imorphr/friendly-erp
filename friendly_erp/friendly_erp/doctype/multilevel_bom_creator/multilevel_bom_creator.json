@@ -11,13 +11,11 @@
   "final_product_tab",
   "item_code",
   "qty",
+  "allow_alternative_item",
   "column_break_xkaq",
   "company",
   "company_currency",
   "uom",
-  "section_break_nnrl",
-  "set_rate_of_sub_assembly_item_based_on_bom",
-  "allow_alternative_item",
   "section_break_sjvl",
   "rm_cost_as_per",
   "buying_price_list",
@@ -136,17 +134,6 @@
    "set_only_once": 1
   },
   {
-   "fieldname": "section_break_nnrl",
-   "fieldtype": "Section Break"
-  },
-  {
-   "default": "1",
-   "fieldname": "set_rate_of_sub_assembly_item_based_on_bom",
-   "fieldtype": "Check",
-   "label": "Set rate of sub-assembly item based on BOM",
-   "read_only": 1
-  },
-  {
    "fieldname": "section_break_sjvl",
    "fieldtype": "Section Break"
   },
@@ -219,7 +206,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-18 06:06:41.770097",
+ "modified": "2026-02-18 08:51:23.713629",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",

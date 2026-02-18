@@ -46,9 +46,7 @@ class MultilevelBOMCreator(Document):
         plc_conversion_rate: DF.Float
         price_list_currency: DF.Link | None
         qty: DF.Float
-        rm_cost_as_per: DF.Literal["Valuation Rate",
-                                   "Last Purchase Rate", "Price List"]
-        set_rate_of_sub_assembly_item_based_on_bom: DF.Check
+        rm_cost_as_per: DF.Literal["Valuation Rate", "Last Purchase Rate", "Price List"]
         uom: DF.Link
     # end: auto-generated types
 
