@@ -9,13 +9,16 @@
   "section_break_catz",
   "bom_tree",
   "final_product_tab",
+  "section_break_wqmq",
+  "bom",
+  "section_break_hnkk",
   "item_code",
   "qty",
+  "uom",
   "allow_alternative_item",
-  "column_break_xkaq",
+  "column_break_vubq",
   "company",
   "company_currency",
-  "uom",
   "section_break_sjvl",
   "rm_cost_as_per",
   "buying_price_list",
@@ -76,10 +79,6 @@
    "options": "Company",
    "reqd": 1,
    "set_only_once": 1
-  },
-  {
-   "fieldname": "column_break_xkaq",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "qty",
@@ -200,6 +199,27 @@
    "fieldtype": "Check",
    "label": " Allow Alternative Item",
    "set_only_once": 1
+  },
+  {
+   "description": "The BOM created by this creator",
+   "fieldname": "bom",
+   "fieldtype": "Link",
+   "label": "BOM",
+   "options": "BOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_hnkk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_vubq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.docstatus !== 0",
+   "fieldname": "section_break_wqmq",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
@@ -207,7 +227,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-18 13:27:44.713787",
+ "modified": "2026-02-18 13:50:39.552163",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",
