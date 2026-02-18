@@ -40,7 +40,7 @@
   {
    "fieldname": "items_tab",
    "fieldtype": "Tab Break",
-   "label": "Item Nodes",
+   "label": "Items",
    "read_only": 1
   },
   {
@@ -107,7 +107,7 @@
   {
    "fieldname": "operation_nodes_tab",
    "fieldtype": "Tab Break",
-   "label": "Operation Nodes"
+   "label": "Operations"
   },
   {
    "fieldname": "operation_nodes",
@@ -207,7 +207,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-18 13:23:23.253854",
+ "modified": "2026-02-18 13:27:44.713787",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",
