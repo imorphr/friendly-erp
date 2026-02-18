@@ -17,6 +17,7 @@
   "uom",
   "section_break_nnrl",
   "set_rate_of_sub_assembly_item_based_on_bom",
+  "allow_alternative_item",
   "section_break_sjvl",
   "rm_cost_as_per",
   "buying_price_list",
@@ -204,6 +205,13 @@
    "label": "Company Currency",
    "options": "Currency",
    "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_alternative_item",
+   "fieldtype": "Check",
+   "label": " Allow Alternative Item",
+   "set_only_once": 1
   }
  ],
  "grid_page_length": 50,
@@ -211,7 +219,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-04 06:27:29.106498",
+ "modified": "2026-02-18 06:06:41.770097",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",

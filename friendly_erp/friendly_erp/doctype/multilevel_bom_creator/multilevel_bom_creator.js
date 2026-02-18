@@ -271,7 +271,8 @@ function add_item(frm, parent, values) {
             item_code: values.item_code,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
             uom: values.uom,
-            rate: values.rate
+            rate: values.rate,
+            allow_alternative_item: values.allow_alternative_item
         },
         freeze: true,
         freeze_message: __("Adding Item..."),
@@ -292,7 +293,8 @@ function update_item(frm, ctx, values) {
             node_unique_id: ctx.node_unique_id,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
             uom: values.uom,
-            rate: values.rate
+            rate: values.rate,
+            allow_alternative_item: values.allow_alternative_item
         },
         freeze: true,
         freeze_message: __("Updating Item..."),
@@ -314,7 +316,8 @@ function add_new_sub_assembly(frm, parent, values) {
             item_code: values.item_code,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
             own_batch_size: values.own_batch_size,
-            uom: values.uom
+            uom: values.uom,
+            allow_alternative_item: values.allow_alternative_item
         },
         freeze: true,
         freeze_message: __("Adding new Sub-assembly..."),
@@ -335,7 +338,8 @@ function update_new_sub_assembly(frm, ctx, values) {
             node_unique_id: ctx.node_unique_id,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
             own_batch_size: values.own_batch_size,
-            uom: values.uom
+            uom: values.uom,
+            allow_alternative_item: values.allow_alternative_item
         },
         freeze: true,
         freeze_message: __("Updating Sub-assembly..."),
@@ -356,7 +360,8 @@ function add_existing_sub_assembly(frm, parent, values) {
             parent_node_unique_id: parent.node_unique_id,
             bom_no: values.bom_no,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
-            uom: values.uom
+            uom: values.uom,
+            allow_alternative_item: values.allow_alternative_item
         },
         freeze: true,
         freeze_message: __("Adding existing Sub-assembly..."),
@@ -376,7 +381,8 @@ function update_existing_sub_assembly(frm, ctx, values) {
             multilevel_bom_creator_name: frm.doc.name,
             node_unique_id: ctx.node_unique_id,
             component_qty_per_parent_bom_run: values.component_qty_per_parent_bom_run,
-            uom: values.uom
+            uom: values.uom,
+            allow_alternative_item: values.allow_alternative_item
         },
         freeze: true,
         freeze_message: __("Updating existing Sub-assembly..."),
@@ -620,7 +626,7 @@ class BOMTreeHelper {
 
         const rowIndex = (this.data || []).findIndex(d => d.node_unique_id === node_unique_id);
         if (rowIndex < 0) return;
-        
+
         this.data_table.rowmanager.scrollToRow(rowIndex);   // First attempt to bring row to view
         setTimeout(() => {
             const rowEl = this.data_table.rowmanager.getRow$(rowIndex);
@@ -887,6 +893,11 @@ class NewFormDialogFactory {
                         });
                     },
                 },
+                {
+                    label: __("Allow Alternative Item"),
+                    fieldtype: "Check",
+                    fieldname: "allow_alternative_item"
+                },
                 { fieldtype: "Column Break" },
                 {
                     label: __("Company"),
@@ -1020,6 +1031,11 @@ class NewChildItemDialogFactory {
                 read_only: this.mode === "EDIT" ? 1 : 0
             });
         }
+        fields.push({
+            label: __("Allow Alternative Item"),
+            fieldtype: "Check",
+            fieldname: "allow_alternative_item"
+        });
         fields.push({ fieldtype: "Section Break" });
         const component_qty_label = this.parent_node
             ? __(`Component Qty Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.stock_uom}) of ${this.parent_node.item_code}`)
@@ -1116,6 +1132,7 @@ class NewChildItemDialogFactory {
             dialog.set_value("bom_no", ctx.bom_no);
         }
 
+        dialog.set_value("allow_alternative_item", ctx.allow_alternative_item);
         dialog.set_value("component_qty_per_parent_bom_run", ctx.component_qty_per_parent_bom_run);
         dialog.set_value("uom", ctx.uom);
 
@@ -1141,7 +1158,7 @@ class NewChildItemDialogFactory {
         frappe.db.get_value(
             "Item",
             item_code,
-            ["stock_uom", "is_stock_item"]
+            ["stock_uom", "is_stock_item", "allow_alternative_item"]
         ).then((r) => {
             if (r && r.message && r.message.stock_uom) {
                 dialog.set_value("uom", r.message.stock_uom);
@@ -1151,6 +1168,8 @@ class NewChildItemDialogFactory {
                 const is_stock_item = r.message.is_stock_item ? 1 : 0;
                 // Hide rate if stock item
                 dialog.set_df_property('rate', 'hidden', is_stock_item);
+                const allow_alternative_item = r.message.allow_alternative_item ? 1 : 0;
+                dialog.set_value("allow_alternative_item", allow_alternative_item);
             }
         });
     }
