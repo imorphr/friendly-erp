@@ -947,7 +947,10 @@ class NewFormDialogFactory {
                     fieldname: "currency",
                     options: "Currency",
                     reqd: 1,
-                    onchange: () => self.update_conversion_rate_description(dialog)
+                    onchange: () => {
+                        self.update_conversion_rate_access(dialog);
+                        self.update_conversion_rate_description(dialog);
+                    }
                 },
                 { fieldtype: "Column Break" },
                 {
@@ -984,9 +987,26 @@ class NewFormDialogFactory {
             if (r?.message?.default_currency) {
                 dialog.set_value("currency", r.message.default_currency);
                 this.company_currency = r.message.default_currency;
+                this.update_conversion_rate_access(dialog);
                 this.update_conversion_rate_description(dialog);
             }
         });
+    }
+
+    update_conversion_rate_access(dialog) {
+        const selected_currency = dialog.get_value("currency");
+        const company_currency = this.company_currency;
+        const same_currency = selected_currency && company_currency && selected_currency === company_currency;
+
+        dialog.set_df_property(
+            "conversion_rate",
+            "read_only",
+            same_currency ? 1 : 0
+        );
+
+        if (same_currency) {
+            dialog.set_value("conversion_rate", 1);
+        }
     }
 
     update_conversion_rate_description(dialog) {
