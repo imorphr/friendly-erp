@@ -24,7 +24,6 @@ class MultilevelBOMCreatorItemNode(Document):
 		component_stock_qty_per_parent_bom_run: DF.Float
 		conversion_factor: DF.Float
 		do_not_explode: DF.Check
-		include_item_in_manufacturing: DF.Check
 		inspection_required: DF.Check
 		is_preexisting_bom: DF.Check
 		is_stock_item: DF.Check
