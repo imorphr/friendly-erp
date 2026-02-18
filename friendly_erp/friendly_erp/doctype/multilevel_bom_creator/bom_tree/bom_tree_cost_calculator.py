@@ -70,7 +70,7 @@ class BOMTreeCostCalculator:
                 required_uom=node.uom,
                 stock_uom=node.stock_uom,
                 conversion_factor=node.conversion_factor,
-                sourced_by_supplier=False,
+                sourced_by_supplier=node.sourced_by_supplier,
                 is_stock_item=node.is_stock_item,
                 existing_base_rate=node.base_rate
             )
@@ -87,7 +87,8 @@ class BOMTreeCostCalculator:
             if fetch_fresh:
                 base_rate = BOMTreeCostCalculationHelper.get_existing_bom_base_rate_in_company_currency_according_to_required_uom(
                     bom_no=node.bom_no,
-                    conversion_factor=node.conversion_factor
+                    conversion_factor=node.conversion_factor,
+                    sourced_by_supplier=node.sourced_by_supplier
                 )
         else:
             base_rate = BOMTreeCostCalculationHelper.get_new_bom_base_rate_in_company_currency_according_to_required_uom(
@@ -125,6 +126,9 @@ class BOMTreeCostCalculator:
 class BOMTreeCostCalculationHelper:
     @classmethod
     def get_item_base_rate_in_company_currency_according_to_required_uom(cls, bom_creator, item_code: str, qty_in_required_uom: float, required_uom: str, stock_uom: str, conversion_factor: float, sourced_by_supplier: bool, is_stock_item: bool, existing_base_rate: float) -> float:
+        if sourced_by_supplier:
+            return 0.0
+
         # get_bom_item_rate is ERPNext method which gives rate in Company Currency according to "Required UOM".
         rate_in_company_currency_according_to_required_uom = get_bom_item_rate(
             {
@@ -153,7 +157,10 @@ class BOMTreeCostCalculationHelper:
         return rate_in_company_currency_according_to_required_uom or 0.0
 
     @classmethod
-    def get_existing_bom_base_rate_in_company_currency_according_to_required_uom(cls, bom_no: str, conversion_factor: float) -> float:
+    def get_existing_bom_base_rate_in_company_currency_according_to_required_uom(cls, bom_no: str, conversion_factor: float, sourced_by_supplier: bool) -> float:
+        if sourced_by_supplier:
+            return 0.0
+
         base_total_cost, bom_quantity = frappe.db.get_value(
             "BOM", bom_no, ["base_total_cost", "quantity"])
         bom_qty_in_required_uom = bom_quantity / (conversion_factor or 1.0)
