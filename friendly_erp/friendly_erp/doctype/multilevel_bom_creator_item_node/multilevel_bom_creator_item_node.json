@@ -38,7 +38,6 @@
   "base_amount",
   "total_required_amount",
   "section_break_amhj",
-  "item_operation",
   "include_item_in_manufacturing",
   "inspection_required"
  ],
@@ -104,12 +103,6 @@
    "fieldtype": "Link",
    "label": "BOM No",
    "options": "BOM"
-  },
-  {
-   "fieldname": "item_operation",
-   "fieldtype": "Link",
-   "label": "Item operation",
-   "options": "Operation"
   },
   {
    "default": "0",
@@ -267,7 +260,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-18 12:07:23.542152",
+ "modified": "2026-02-18 12:12:01.479066",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator Item Node",

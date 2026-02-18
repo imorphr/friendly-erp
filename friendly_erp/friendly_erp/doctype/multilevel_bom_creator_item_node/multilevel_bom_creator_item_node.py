@@ -29,7 +29,6 @@ class MultilevelBOMCreatorItemNode(Document):
 		is_preexisting_bom: DF.Check
 		is_stock_item: DF.Check
 		item_code: DF.Link | None
-		item_operation: DF.Link | None
 		node_type: DF.Literal["ITEM", "SUB_ASSEMBLY"]
 		node_unique_id: DF.Data
 		own_batch_size: DF.Float
