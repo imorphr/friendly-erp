@@ -163,6 +163,7 @@
    "fieldtype": "Float",
    "label": "Conversion Rate",
    "precision": "9",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -206,7 +207,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-18 08:51:23.713629",
+ "modified": "2026-02-18 13:23:23.253854",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",

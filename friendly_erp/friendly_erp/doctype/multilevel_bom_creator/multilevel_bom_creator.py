@@ -76,6 +76,9 @@ class MultilevelBOMCreator(Document):
                 "Company", self.company, "default_currency"
             )
 
+        if self.company_currency == self.currency:
+            self.conversion_rate = 1.0
+
         if not self.is_new() and self._has_rm_cost_relevant_change():
             # Update cost calculation for whole tree as cost related fields has been changed
             # Passing "*" for "fetch_fresh_rate_for_node_ids" to fetch fresh rate for all nodes.
