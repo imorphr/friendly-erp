@@ -532,7 +532,7 @@ class BOMTreeHelper {
                 width: 105
             },
             {
-                name: "Rate",
+                name: "Unit Rate",
                 id: "rate",
                 width: 100,
                 format: (value, row, column, data) => this.format_rate_column(value, data)
