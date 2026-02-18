@@ -24,7 +24,6 @@ class MultilevelBOMCreatorItemNode(Document):
 		component_stock_qty_per_parent_bom_run: DF.Float
 		conversion_factor: DF.Float
 		do_not_explode: DF.Check
-		has_variants: DF.Check
 		include_item_in_manufacturing: DF.Check
 		inspection_required: DF.Check
 		is_preexisting_bom: DF.Check
@@ -38,10 +37,8 @@ class MultilevelBOMCreatorItemNode(Document):
 		parent_node_unique_id: DF.Data | None
 		parentfield: DF.Data
 		parenttype: DF.Data
-		project: DF.Link | None
 		rate: DF.Currency
 		sequence: DF.Int
-		set_rate_of_sub_assembly_item_based_on_bom: DF.Check
 		source_warehouse: DF.Link | None
 		sourced_by_supplier: DF.Check
 		stock_uom: DF.Link | None
