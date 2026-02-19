@@ -69,10 +69,10 @@ class MultilevelBOMCreator(Document):
             self.uom = stock_uom
 
     def before_save(self) -> None:
+        self.clear_bom_no_for_new_amended_or_duplicate_document()
+
         if not self.item_nodes:
             self.add_root_item()
-
-        self.clear_bom_no_for_new_amended_sub_assemblies()
 
         if not self.company_currency:
             self.company_currency = frappe.get_value(
@@ -89,20 +89,34 @@ class MultilevelBOMCreator(Document):
                 BOMCreatorTreeBuilder(self).create(), {"*"}
             )
 
-    def clear_bom_no_for_new_amended_sub_assemblies(self) -> None:
-        """
-        During Amend, Frappe clones child rows from the previous document.
-        That can carry old `bom_no` values into the new draft before the user
-        finalizes the updated structure.
+    def before_submit(self) -> None:
+        total_count = len(self.item_nodes or []) + \
+            len(self.operation_nodes or [])
+        if total_count < 2:
+            frappe.throw("No child items or operations found.")
+        self.create_boms()
 
-        For the amended copy, we intentionally clear `bom_no` on:
+    def clear_bom_no_for_new_amended_or_duplicate_document(self) -> None:
+        """
+        During Amend and Duplicate, Frappe clones child rows from the source
+        document. That can carry old `bom_no` values into the new draft before
+        the user finalizes the updated structure.
+
+        For copied drafts (amended or duplicated), we intentionally clear
+        `bom_no` on:
         - the root SUB_ASSEMBLY row, and
         - any new SUB_ASSEMBLY row (`is_preexisting_bom` is false).
 
         This prevents stale BOM links from the source document from being
-        treated as valid links in the amended draft.
+        treated as valid links in the new draft.
         """
-        if not (self.is_new() and self.amended_from):
+        if not self.is_new():
+            return
+
+        # Amended copies have amended_from set; duplicate copies are new docs
+        # that already contain cloned tree rows before first save.
+        is_copied_doc = bool(self.amended_from) or bool(self.item_nodes)
+        if not is_copied_doc:
             return
 
         for item in (self.item_nodes or []):
@@ -112,13 +126,6 @@ class MultilevelBOMCreator(Document):
             is_root_item = not item.parent_node_unique_id
             if is_root_item or not item.is_preexisting_bom:
                 item.bom_no = None
-
-    def before_submit(self) -> None:
-        total_count = len(self.item_nodes or []) + \
-            len(self.operation_nodes or [])
-        if total_count < 2:
-            frappe.throw("No child items or operations found.")
-        self.create_boms()
 
     def _has_rm_cost_relevant_change(self) -> bool:
         """
