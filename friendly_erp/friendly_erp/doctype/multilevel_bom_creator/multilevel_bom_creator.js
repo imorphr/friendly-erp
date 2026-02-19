@@ -45,11 +45,30 @@ function set_plc_conversion_rate_from_price_list(frm) {
 function setup_bom_creator(frm) {
     frm._tree_helper = new BOMTreeHelper(frm);
     frm._tree_helper.reset_tree_html();
-    if (!frm.is_new()) {
-        fetch_bom_tree_data(frm, frm._tree_helper);
-    } else {
-        make_new_entry(frm);
+    if (should_autosave_amended_copy(frm)) {
+        autosave_amended_copy_and_reload(frm);
+        return;
     }
+
+    if (should_show_new_entry_dialog(frm)) {
+        make_new_entry(frm);
+        return;
+    }
+
+    fetch_bom_tree_data(frm, frm._tree_helper);
+}
+
+function should_show_new_entry_dialog(frm) {
+    // Amended documents are also "new", but they already carry copied source data.
+    return frm.is_new() && !frm.doc.amended_from;
+}
+
+function should_autosave_amended_copy(frm) {
+    return frm.is_new() && !!frm.doc.amended_from;
+}
+
+function autosave_amended_copy_and_reload(frm) {
+    on_new_document_creation_requested(frm.doc, frm);
 }
 
 function make_new_entry(frm) {
