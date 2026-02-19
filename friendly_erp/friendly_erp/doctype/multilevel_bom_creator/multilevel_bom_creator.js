@@ -4,6 +4,10 @@
 frappe.ui.form.on("Multilevel BOM Creator", {
     refresh(frm) {
         setup_bom_creator(frm);
+
+        if (!frm.is_new() && frm.page.menu?.children().length) {
+            frm.page.show_menu();
+        }
     },
 
     rm_cost_as_per(frm) {
@@ -15,42 +19,21 @@ frappe.ui.form.on("Multilevel BOM Creator", {
     }
 });
 
-function set_plc_conversion_rate_from_price_list(frm) {
-    if (frm.doc.rm_cost_as_per !== "Price List") {
-        return;
-    }
-
-    const price_list = frm.doc.buying_price_list;
-    const company_currency = frm.doc.company_currency;
-
-    if (!price_list || !company_currency) {
-        return;
-    }
-
-    frappe.db.get_value("Price List", price_list, "currency")
-        .then(r => {
-            const price_list_currency = r?.message?.currency;
-            if (!price_list_currency) return;
-
-            if (price_list_currency === company_currency) {
-                frm.set_value("plc_conversion_rate", 1);
-                frm.set_df_property("plc_conversion_rate", "description", "");
-            } else {
-                frm.set_value("plc_conversion_rate", null);
-                frm.set_df_property("plc_conversion_rate", "description", `1 ${price_list_currency} = [?] ${company_currency}`);
-            }
-        });
-}
-
 function setup_bom_creator(frm) {
     frm._tree_helper = new BOMTreeHelper(frm);
     frm._tree_helper.reset_tree_html();
-    if (should_autosave_amended_copy(frm)) {
-        autosave_amended_copy_and_reload(frm);
+
+    if (should_autosave_amended_copy(frm) || should_autosave_duplicated_copy(frm)) {
+        // For new docs created via Amend or Duplicate, data is already copied from
+        // an existing record, so we skip the new-entry dialog and silently save,
+        // then reload/route to the saved document.
+        autosave_and_reload(frm);
         return;
     }
 
-    if (should_show_new_entry_dialog(frm)) {
+    if (frm.is_new()) {
+        // Reaching this point means it's a brand-new document (not Amend/Duplicate),
+        // so we should show the new-entry dialog.
         make_new_entry(frm);
         return;
     }
@@ -58,16 +41,26 @@ function setup_bom_creator(frm) {
     fetch_bom_tree_data(frm, frm._tree_helper);
 }
 
-function should_show_new_entry_dialog(frm) {
-    // Amended documents are also "new", but they already carry copied source data.
-    return frm.is_new() && !frm.doc.amended_from;
-}
-
 function should_autosave_amended_copy(frm) {
     return frm.is_new() && !!frm.doc.amended_from;
 }
 
-function autosave_amended_copy_and_reload(frm) {
+function should_autosave_duplicated_copy(frm) {
+    if (!frm.is_new() || frm.doc.amended_from) {
+        return false;
+    }
+
+    // Duplicated docs arrive as local docs with copied tree rows already present.
+    return has_copied_tree_rows(frm);
+}
+
+function has_copied_tree_rows(frm) {
+    const item_nodes_count = (frm.doc.item_nodes || []).length;
+    const operation_nodes_count = (frm.doc.operation_nodes || []).length;
+    return (item_nodes_count + operation_nodes_count) > 0;
+}
+
+function autosave_and_reload(frm) {
     on_new_document_creation_requested(frm.doc, frm);
 }
 
@@ -115,6 +108,33 @@ function consume_pending_scroll_node(frm) {
     const id = frm._pending_scroll_node_unique_id;
     frm._pending_scroll_node_unique_id = null;
     return id;
+}
+
+function set_plc_conversion_rate_from_price_list(frm) {
+    if (frm.doc.rm_cost_as_per !== "Price List") {
+        return;
+    }
+
+    const price_list = frm.doc.buying_price_list;
+    const company_currency = frm.doc.company_currency;
+
+    if (!price_list || !company_currency) {
+        return;
+    }
+
+    frappe.db.get_value("Price List", price_list, "currency")
+        .then(r => {
+            const price_list_currency = r?.message?.currency;
+            if (!price_list_currency) return;
+
+            if (price_list_currency === company_currency) {
+                frm.set_value("plc_conversion_rate", 1);
+                frm.set_df_property("plc_conversion_rate", "description", "");
+            } else {
+                frm.set_value("plc_conversion_rate", null);
+                frm.set_df_property("plc_conversion_rate", "description", `1 ${price_list_currency} = [?] ${company_currency}`);
+            }
+        });
 }
 
 //============ Tree item handlers ============
