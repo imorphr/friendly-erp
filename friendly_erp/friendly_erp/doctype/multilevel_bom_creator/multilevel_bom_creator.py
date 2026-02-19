@@ -72,6 +72,8 @@ class MultilevelBOMCreator(Document):
         if not self.item_nodes:
             self.add_root_item()
 
+        self.clear_bom_no_for_new_amended_sub_assemblies()
+
         if not self.company_currency:
             self.company_currency = frappe.get_value(
                 "Company", self.company, "default_currency"
@@ -86,6 +88,30 @@ class MultilevelBOMCreator(Document):
             self.update_quantity_time_and_cost(
                 BOMCreatorTreeBuilder(self).create(), {"*"}
             )
+
+    def clear_bom_no_for_new_amended_sub_assemblies(self) -> None:
+        """
+        During Amend, Frappe clones child rows from the previous document.
+        That can carry old `bom_no` values into the new draft before the user
+        finalizes the updated structure.
+
+        For the amended copy, we intentionally clear `bom_no` on:
+        - the root SUB_ASSEMBLY row, and
+        - any new SUB_ASSEMBLY row (`is_preexisting_bom` is false).
+
+        This prevents stale BOM links from the source document from being
+        treated as valid links in the amended draft.
+        """
+        if not (self.is_new() and self.amended_from):
+            return
+
+        for item in (self.item_nodes or []):
+            if item.node_type != "SUB_ASSEMBLY":
+                continue
+
+            is_root_item = not item.parent_node_unique_id
+            if is_root_item or not item.is_preexisting_bom:
+                item.bom_no = None
 
     def before_submit(self) -> None:
         total_count = len(self.item_nodes or []) + \

@@ -11,6 +11,7 @@
   "final_product_tab",
   "section_break_wqmq",
   "bom",
+  "amended_from",
   "section_break_hnkk",
   "item_code",
   "qty",
@@ -32,8 +33,7 @@
   "items_tab",
   "item_nodes",
   "operation_nodes_tab",
-  "operation_nodes",
-  "amended_from"
+  "operation_nodes"
  ],
  "fields": [
   {
@@ -227,7 +227,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-18 13:50:39.552163",
+ "modified": "2026-02-19 06:36:19.353055",
  "modified_by": "Administrator",
  "module": "Friendly Erp",
  "name": "Multilevel BOM Creator",
