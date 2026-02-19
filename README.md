@@ -34,6 +34,9 @@ If your team creates complex multi-level BOMs, this feature helps you:
 4. Review required quantities, required times, and cost rollups.
 5. Submit the creator document to create BOMs.
 
+## Developer Note
+For technical specifications, please refer to the `/specs` folder in this repository.
+
 ## Installation
 Install using Bench:
 
