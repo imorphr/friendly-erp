@@ -20,6 +20,8 @@ The chair will have these direct children:
 - `WHEEL-ASSEMBLY` qty `4`
 - `SEAT-ASSEMBLY` qty `1`
 - `BACKREST-ASSEMBLY` qty `1`
+- Operation - `Final Chair Assembly`
+- Operation - `Final Inspection`
 
 Inside `WHEEL-ASSEMBLY`, we will add:
 
@@ -32,7 +34,7 @@ Inside `SEAT-ASSEMBLY`, we will add:
 - `SEAT-CUSHION` qty `1`
 - `SEAT-BOARD` qty `1`
 - `UPHOLSTERY-FABRIC` qty `2`
-- operation `Seat Upholstery`
+- Operation `Seat Upholstery`
 
 For `BACKREST-ASSEMBLY`, we will reuse an already existing BOM.
 
