@@ -141,7 +141,7 @@ Here the first example is `Seat Upholstery` under `SEAT-ASSEMBLY`.
 ![Add Operation menu](images/mlbomc-13-add-operation-menu.png)
 *Caption: Use `Add Operation` on the node where the work is performed.*
 
-Enter the operation details such as time, fixed-time behavior, operation batch size and workstation context.
+Enter the operation details such as time, fixed-time behavior, operation batch size, and workstation context.
 
 ![Add Operation dialog](images/mlbomc-14-add-operation-dialog.png)
 *Caption: Enter the operation details, such as time and workstation context.*
@@ -208,7 +208,7 @@ Use `Add New Sub-Assembly` when the child BOM does not exist yet and should be c
 
 ### Duplicate BOM
 
-If an existing BOM is close to your requirement but not an exact match, first add it as an existing sub-assembly and then use `Duplicate BOM` action. That copies the referenced structure into the current document so the copied immediate children can be adjusted. And in the end it will create new BOM for that sub-assembly reflecting the adjustments you made.
+If an existing BOM is close to your requirement but not an exact match, first add it as an existing sub-assembly and then use the `Duplicate BOM` action. This copies the referenced structure into the current document so the copied immediate children can be adjusted. In the end, it creates a new BOM for that sub-assembly reflecting the adjustments you made.
 
 ## Closing Note
 
