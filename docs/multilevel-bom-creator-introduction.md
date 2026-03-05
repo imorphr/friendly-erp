@@ -1,6 +1,6 @@
 # Building a Multi-Level BOM in ERPNext with Multilevel BOM Creator
 
-If you create products with multiple sub-assemblies, standard BOM creation can become repetitive very quickly. You create one BOM, then another for a child assembly, then another for a reused assembly, and you keep switching context just to understand the full structure.
+If you create products with multiple sub-assemblies, standard BOM creation can become repetitive very quickly. You create BOMs for child assemblies first, then BOMs for their parent assemblies level by level, and you keep switching context just to understand the full structure.
 
 ERPNext also has BOM Creator, but it does not support operations and reuse of existing BOMs inside the same BOM creation tree.
 
