@@ -55,6 +55,8 @@ Start a new `Multilevel BOM Creator` and enter the basic context for the product
 ![New document and initial details](images/mlbomc-01-initial-details.png)
 *Caption: Create the document and enter the finished product details.*
 
+When `Create` is clicked, the BOM tree table shows the root node (first row) for this root item.
+
 ## 2. Add Direct Child Items
 
 The first action most users will take is `Add Item`. In this example, we use it first for `ARMREST` with quantity `2`.
@@ -103,7 +105,11 @@ For this example, `WHEEL-ASSEMBLY` is completed with `WHEEL`, `AXLE-PIN`, and `B
 ![Wheel Assembly completed](images/mlbomc-09-wheel-assembly-completed.png)
 *Caption: Complete `WHEEL-ASSEMBLY` by adding `WHEEL`, `AXLE-PIN`, and `BOLT`.*
 
-This part of the example shows one of the most useful things about the tool. The chair needs `4` `WHEEL-ASSEMBLY`, and each wheel assembly needs `4` `BOLT`. That means the tree can show the total required quantity of `BOLT` across the full product structure instead of making the user calculate it separately.
+This part of the example highlights how quantities are shown at different levels. In `WHEEL-ASSEMBLY`, `BOLT` is entered as qty `4`, which means one `WHEEL-ASSEMBLY` needs `4` bolts. So for the `BOLT` row, `Comp. Qty` is `4`.
+
+But `OFFICE-CHAIR` needs `4` `WHEEL-ASSEMBLY`, so total `BOLT` needed for the final product is `4 x 4 = 16`. So `Req. Qty` is shown as `16`.
+
+In summary, the tree shows `Comp. Qty` as the quantity required to create the batch size of the immediate parent BOM, and `Req. Qty` as the quantity required to create the batch size of the root BOM (final product BOM).
 
 ## 4. Add an Existing Sub-Assembly
 
@@ -199,10 +205,6 @@ While adding items, the creator also supports cases where the item's stock UOM i
 ### New vs Existing Sub-Assembly
 
 Use `Add New Sub-Assembly` when the child BOM does not exist yet and should be created from the current document. Use `Add Existing Sub-Assembly` when the BOM already exists and should simply be reused.
-
-### Projected Rows
-
-Projected rows come from referenced existing BOM structures. They help you see the full structure in one place, but they are read-only.
 
 ### Duplicate BOM
 
