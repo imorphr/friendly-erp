@@ -56,11 +56,11 @@ class MultilevelBOMCreator(Document):
 
     def validate(self) -> None:
         if not self.item_code:
-            frappe.throw("Item Code is required.")
+            frappe.throw(_("Item Code is required."))
         if not self.company:
-            frappe.throw("Company is required.")
+            frappe.throw(_("Company is required."))
         if not self.qty or self.qty <= 0:
-            frappe.throw("Quantity must be greater than zero.")
+            frappe.throw(_("Quantity must be greater than zero."))
 
         self.assert_price_list_currency_is_valid()
 
@@ -93,7 +93,7 @@ class MultilevelBOMCreator(Document):
         total_count = len(self.item_nodes or []) + \
             len(self.operation_nodes or [])
         if total_count < 2:
-            frappe.throw("No child items or operations found.")
+            frappe.throw(_("No child items or operations found."))
         self.create_boms()
 
     def clear_bom_no_for_new_amended_or_duplicate_document(self) -> None:
@@ -184,29 +184,31 @@ class MultilevelBOMCreator(Document):
         """
 
         if not unique_id:
-            frappe.throw("Unique ID cannot be empty.")
+            frappe.throw(_("Unique ID cannot be empty."))
 
         # Check item nodes
         for node in self.item_nodes:
             if node.node_unique_id == unique_id:
                 frappe.throw(
-                    f"Duplicate node unique_id detected: '{unique_id}' "
-                    f"(already used in Item nodes)"
+                    _("Duplicate node unique_id detected: '{0}' (already used in Item nodes)").format(
+                        unique_id
+                    )
                 )
 
         # Check operation nodes
         for node in self.operation_nodes:
             if node.node_unique_id == unique_id:
                 frappe.throw(
-                    f"Duplicate node unique_id detected: '{unique_id}' "
-                    f"(already used in Operation nodes)"
+                    _("Duplicate node unique_id detected: '{0}' (already used in Operation nodes)").format(
+                        unique_id
+                    )
                 )
 
     def add_root_item(self) -> None:
         """Add the root item to the BOM creator document."""
         self.ensure_draft_status()
         if self.item_nodes:
-            frappe.throw("Root item already exists.")
+            frappe.throw(_("Root item already exists."))
 
         item: MultilevelBOMCreatorItemNode = frappe.new_doc(
             "Multilevel BOM Creator Item Node")
@@ -245,7 +247,8 @@ class MultilevelBOMCreator(Document):
         self.ensure_draft_status()
         if not component_qty_per_parent_bom_run or component_qty_per_parent_bom_run <= 0:
             frappe.throw(
-                "Quantity per parent BOM run must be greater than zero.")
+                _("Quantity per parent BOM run must be greater than zero.")
+            )
 
         has_bom = self._has_active_bom(item_code)
         stock_uom = self._get_stock_uom(item_code)
@@ -285,17 +288,21 @@ class MultilevelBOMCreator(Document):
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
             frappe.throw(
-                f"Parent node with ID {parent_node_unique_id} not found.")
+                _("Parent node with ID {0} not found.").format(parent_node_unique_id)
+            )
 
         if not parent_node.can_add_child_item:
             frappe.throw(
-                f"Cannot add item under node '{parent_node.display_name}'. "
-                f"Adding child items is not allowed for this node."
+                _("Cannot add item under node '{0}'. Adding child items is not allowed for this node.").format(
+                    parent_node.display_name
+                )
             )
 
         if tree.item_node_exists_in_upward_path(parent_node_unique_id, item_code):
             frappe.throw(
-                f"Item '{item_code}' already exists as a direct or indirect parent. Item can not be child of itself."
+                _("Item '{0}' already exists as a direct or indirect parent. Item can not be child of itself.").format(
+                    item_code
+                )
             )
 
         parent_item = next((
@@ -305,8 +312,9 @@ class MultilevelBOMCreator(Document):
         # As child is being added, parent must be a Sub-Assembly
         if parent_item.node_type != "SUB_ASSEMBLY":
             frappe.throw(
-                f"Parent node '{parent_item.display_name}' is not a Sub-Assembly. "
-                f"Adding child items is not allowed for this node."
+                _("Parent node '{0}' is not a Sub-Assembly. Adding child items is not allowed for this node.").format(
+                    parent_item.display_name
+                )
             )
 
         self.update_quantity_time_and_cost(tree, {unique_id})
@@ -420,29 +428,31 @@ class MultilevelBOMCreator(Document):
     ) -> str:
         self.ensure_draft_status()
         if not bom_no and not item_code:
-            frappe.throw("Either BOM name or Item code must be provided.")
+            frappe.throw(_("Either BOM name or Item code must be provided."))
 
         is_stock_item = 0
         if not bom_no:
             is_stock_item = self._is_stock_item(item_code)
             # To create BOM for an item, item must be stock item
             if not is_stock_item:
-                frappe.throw(f"Item {item_code} is not a stock item.")
+                frappe.throw(_("Item {0} is not a stock item.").format(item_code))
 
         if not component_qty_per_parent_bom_run or component_qty_per_parent_bom_run <= 0:
             frappe.throw(
-                "Quantity per parent BOM run must be greater than zero.")
+                _("Quantity per parent BOM run must be greater than zero.")
+            )
 
         if not bom_no and not own_batch_size:
             frappe.throw(
-                "Own BOM Quantity must be provided for new sub-assembly.")
+                _("Own BOM Quantity must be provided for new sub-assembly.")
+            )
 
         bom = None
         if bom_no:
             # Existing Sub-Assembly
             bom = frappe.get_doc("BOM", bom_no)
             if not bom:
-                frappe.throw(f"Could not find bom {bom.name}")
+                frappe.throw(_("Could not find BOM {0}").format(bom_no))
             if bom.docstatus != 1:
                 frappe.throw(_("Selected BOM must be submitted"))
             if not bom.is_active:
@@ -495,12 +505,14 @@ class MultilevelBOMCreator(Document):
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
             frappe.throw(
-                f"Parent node with ID {parent_node_unique_id} not found.")
+                _("Parent node with ID {0} not found.").format(parent_node_unique_id)
+            )
 
         if not parent_node.can_add_child_item:
             frappe.throw(
-                f"Cannot add sub-assembly under node '{parent_node.display_name}'. "
-                f"Adding child sub-assembly is not allowed for this node."
+                _("Cannot add sub-assembly under node '{0}'. Adding child sub-assembly is not allowed for this node.").format(
+                    parent_node.display_name
+                )
             )
 
         parent_item = next((
@@ -510,13 +522,16 @@ class MultilevelBOMCreator(Document):
         # As child is being added, parent must be a Sub-Assembly
         if parent_item.node_type != "SUB_ASSEMBLY":
             frappe.throw(
-                f"Parent node '{parent_item.display_name}' is not a Sub-Assembly. "
-                f"Adding child items is not allowed for this node."
+                _("Parent node '{0}' is not a Sub-Assembly. Adding child items is not allowed for this node.").format(
+                    parent_item.display_name
+                )
             )
 
         if tree.item_node_exists_in_upward_path(parent_node_unique_id, item_code_to_use):
             frappe.throw(
-                f"Item '{item_code_to_use}' already exists as a direct or indirect parent. Item can not be child of itself."
+                _("Item '{0}' already exists as a direct or indirect parent. Item can not be child of itself.").format(
+                    item_code_to_use
+                )
             )
 
         self.update_quantity_time_and_cost(tree, {unique_id})
@@ -586,7 +601,8 @@ class MultilevelBOMCreator(Document):
         self.ensure_draft_status()
         if not workstation and not workstation_type:
             frappe.throw(
-                "Provide atleast one of Workstation Type and Workstation")
+                _("Provide atleast one of Workstation Type and Workstation")
+            )
 
         parent_item = next((
             item for item in self.item_nodes if item.node_unique_id == parent_node_unique_id
@@ -595,8 +611,9 @@ class MultilevelBOMCreator(Document):
         # As child is being added, parent must be a Sub-Assembly
         if parent_item.node_type != "SUB_ASSEMBLY":
             frappe.throw(
-                f"Parent node '{parent_item.display_name}' is not a Sub-Assembly. "
-                f"Adding child operation is not allowed for this node."
+                _("Parent node '{0}' is not a Sub-Assembly. Adding child operation is not allowed for this node.").format(
+                    parent_item.display_name
+                )
             )
 
         operation_doc: MultilevelBOMCreatorOperationNode = frappe.new_doc(
@@ -624,12 +641,14 @@ class MultilevelBOMCreator(Document):
         parent_node = tree.find_node_by_unique_id(parent_node_unique_id)
         if not parent_node:
             frappe.throw(
-                f"Parent node with ID {parent_node_unique_id} not found.")
+                _("Parent node with ID {0} not found.").format(parent_node_unique_id)
+            )
 
         if not parent_node.can_add_child_operation:
             frappe.throw(
-                f"Cannot add operation under node '{parent_node.display_name}'. "
-                f"Adding child operations is not allowed for this node."
+                _("Cannot add operation under node '{0}'. Adding child operations is not allowed for this node.").format(
+                    parent_node.display_name
+                )
             )
 
         # Passing None as fetch_fresh_rate_for_node_ids as we here expect hour rate should be provided by client
@@ -650,7 +669,8 @@ class MultilevelBOMCreator(Document):
         self.ensure_draft_status()
         if not workstation and not workstation_type:
             frappe.throw(
-                "Provide atleast one of Workstation Type and Workstation")
+                _("Provide atleast one of Workstation Type and Workstation")
+            )
 
         operation_doc = next(
             (
@@ -661,7 +681,7 @@ class MultilevelBOMCreator(Document):
         )
 
         if not operation_doc:
-            frappe.throw("Operation node not found.")
+            frappe.throw(_("Operation node not found."))
 
         operation_doc.time_in_mins = time_in_mins
         operation_doc.fixed_time = fixed_time
@@ -748,14 +768,14 @@ class MultilevelBOMCreator(Document):
     def delete_item_or_operation(self, node_unique_id: str) -> None:
         self.ensure_draft_status()
         if not node_unique_id:
-            frappe.throw("Node unique id is required")
+            frappe.throw(_("Node unique id is required"))
 
         tree: BOMTree = BOMCreatorTreeBuilder(self).create()
         node = tree.find_node_by_unique_id(node_unique_id)
         if not node:
-            frappe.throw(f"Node '{node_unique_id}' not found")
+            frappe.throw(_("Node '{0}' not found").format(node_unique_id))
         if not node.can_delete:
-            frappe.throw(f"Node '{node.display_name}' cannot be deleted")
+            frappe.throw(_("Node '{0}' cannot be deleted").format(node.display_name))
         node_ids_to_delete = tree.get_descendant_node_ids(node_unique_id)
         # Delete operation nodes
         self.operation_nodes = [
@@ -827,7 +847,7 @@ class MultilevelBOMCreator(Document):
 
     def ensure_draft_status(self):
         if self.docstatus != 0:
-            frappe.throw("Can not change submitted document.")
+            frappe.throw(_("Can not change submitted document."))
 
     def _get_stock_uom(self, item_code: str) -> str:
         return frappe.get_value(

@@ -1,5 +1,6 @@
 import math
 import frappe
+from frappe import _
 
 from frappe.utils import flt
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
@@ -85,7 +86,8 @@ class BOMTreeQtyTimeCalculator:
         parent_node: BOMTreeSubAssemblyNode = node.parent_node_ref
         if not isinstance(parent_node, BOMTreeSubAssemblyNode):
             frappe.throw(
-                "Parent of ITEM/SUB_ASSEMBLY must be a Sub Assembly node")
+                _("Parent of ITEM/SUB_ASSEMBLY must be a Sub Assembly node")
+            )
         parent_bom_run_count = parent_node.bom_run_count
 
         # NOTE: total_required_qty is in "Reuired UOM" not in "Stock UOM" because
@@ -109,7 +111,8 @@ class BOMTreeQtyTimeCalculator:
             parent_node: BOMTreeSubAssemblyNode = node.parent_node_ref
             if not isinstance(parent_node, BOMTreeSubAssemblyNode):
                 frappe.throw(
-                    "Parent of operation must be a Sub Assembly node")
+                    _("Parent of operation must be a Sub Assembly node")
+                )
 
             # Assuming that to calculate operation time, always need to consider full BOM runs.
             # Because even if a sub-assembly is needed partially, the operation needs to be done for the full batch.

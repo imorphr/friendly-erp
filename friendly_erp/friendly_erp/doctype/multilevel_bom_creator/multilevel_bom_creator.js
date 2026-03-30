@@ -1062,7 +1062,8 @@ class NewFormDialogFactory {
         }
 
         const description = __(
-            `1 ${selected_currency} = [?] ${company_currency}`
+            "1 {0} = [?] {1}",
+            [selected_currency, company_currency]
         );
 
         dialog.set_df_property(
@@ -1107,7 +1108,14 @@ class NewChildItemDialogFactory {
         }
         fields.push({ fieldtype: "Section Break" });
         const component_qty_label = this.parent_node
-            ? __(`Component Qty Required For Batch Size (${this.parent_node.own_batch_size} ${this.parent_node.stock_uom}) of ${this.parent_node.item_code}`)
+            ? __(
+                "Component Qty Required For Batch Size ({0} {1}) of {2}",
+                [
+                    this.parent_node.own_batch_size,
+                    this.parent_node.stock_uom,
+                    this.parent_node.item_code
+                ]
+            )
             : __("Component Qty");
         fields.push({
             label: component_qty_label,
