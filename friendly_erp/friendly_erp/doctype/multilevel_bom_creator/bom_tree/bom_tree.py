@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional
 import frappe
+from frappe import _
 
 # ===============================================================================
 #                             Tree Node Classes
@@ -48,17 +49,20 @@ class BOMTreeNode:
     # parent ref, indent and depth.
     def add_child(self, child_node: 'BOMTreeNode'):
         if not self.tree_ref:
-            frappe.throw("Node is not attached to any tree")
+            frappe.throw(_("Node is not attached to any tree"))
         if child_node.parent_node_ref is not None:
-            frappe.throw(f"Node '{self.display_name}' already has a parent")
+            frappe.throw(_("Node '{0}' already has a parent").format(self.display_name))
         if child_node.tree_ref is not self.tree_ref:
-            frappe.throw("Node belongs to a different tree")
+            frappe.throw(_("Node belongs to a different tree"))
 
         current = self
         while current:
             if current is child_node:
                 frappe.throw(
-                    f"Circular parent-child relationship detected for {child_node.display_name}")
+                    _("Circular parent-child relationship detected for {0}").format(
+                        child_node.display_name
+                    )
+                )
             current = current.parent_node_ref
 
         child_node.parent_node_unique_id = self.node_unique_id
@@ -181,11 +185,11 @@ class BOMTree:
 
     def set_root(self, root_node: BOMTreeNode):
         if not root_node:
-            frappe.throw("Root node must be given")
+            frappe.throw(_("Root node must be given"))
         if not root_node.node_unique_id:
-            frappe.throw("Unique id is not assigned to the root node.")
+            frappe.throw(_("Unique id is not assigned to the root node."))
         if self.root:
-            frappe.throw("Root node is already set. Can not set it again.")
+            frappe.throw(_("Root node is already set. Can not set it again."))
         self.root = root_node
         self.root.tree_ref = self   # Putting tree ref inside root node ref
         self.root.parent_node_unique_id = None
@@ -198,13 +202,15 @@ class BOMTree:
     def add_to_node_map(self, node: BOMTreeNode):
         self.ensure_root_exists()
         if node.tree_ref is not self:
-            frappe.throw("Node belongs to a different tree")
+            frappe.throw(_("Node belongs to a different tree"))
         if not node.node_unique_id:
             frappe.throw(
-                f"Unique id is not assigned to the node {node.display_name}.")
+                _("Unique id is not assigned to the node {0}.").format(node.display_name)
+            )
         if node.node_unique_id in self.node_map:
             frappe.throw(
-                f"Node {node.display_name} is already present in the tree.")
+                _("Node {0} is already present in the tree.").format(node.display_name)
+            )
         self.node_map[node.node_unique_id] = node
 
     def find_node_by_unique_id(self, node_unique_id: str) -> BOMTreeNode | None:
@@ -266,7 +272,7 @@ class BOMTree:
 
         start_node = self.find_node_by_unique_id(node_unique_id)
         if not start_node:
-            frappe.throw(f"Node with id '{node_unique_id}' not found in tree")
+            frappe.throw(_("Node with id '{0}' not found in tree").format(node_unique_id))
 
         descendant_ids: set[str] = set()
 
@@ -289,7 +295,9 @@ class BOMTree:
 
         if not start_node:
             frappe.throw(
-                f"Node with unique_id '{start_node_unique_id}' not found in BOM tree."
+                _("Node with unique_id '{0}' not found in BOM tree.").format(
+                    start_node_unique_id
+                )
             )
 
         current = start_node
@@ -313,7 +321,9 @@ class BOMTree:
 
         if not start_node:
             frappe.throw(
-                f"Node with unique_id '{start_node_unique_id}' not found in BOM tree."
+                _("Node with unique_id '{0}' not found in BOM tree.").format(
+                    start_node_unique_id
+                )
             )
 
         current = start_node
@@ -350,9 +360,9 @@ class BOMTree:
         """
         self.ensure_root_exists()
         if not another_tree:
-            frappe.throw("Other tree was not given for merge operation.")
+            frappe.throw(_("Other tree was not given for merge operation."))
         if not parent_node:
-            frappe.throw("Parent node not specified.")
+            frappe.throw(_("Parent node not specified."))
 
         # Validate parent node belongs to this tree
         if (
@@ -361,7 +371,9 @@ class BOMTree:
             or self.node_map[parent_node.node_unique_id] is not parent_node
         ):
             frappe.throw(
-                f"Parent node '{parent_node.display_name}' does not belong to this tree"
+                _("Parent node '{0}' does not belong to this tree").format(
+                    parent_node.display_name
+                )
             )
 
         another_tree.ensure_root_exists()
@@ -400,7 +412,9 @@ class BOMTree:
 
             if unique_id in self.node_map:
                 frappe.throw(
-                    f"Duplicate node '{node.display_name}' detected while merging trees"
+                    _("Duplicate node '{0}' detected while merging trees").format(
+                        node.display_name
+                    )
                 )
 
             self.add_to_node_map(node)
@@ -421,7 +435,7 @@ class BOMTree:
 
     def ensure_root_exists(self):
         if not self.root:
-            frappe.throw("Root node is not present")
+            frappe.throw(_("Root node is not present"))
 
     def get_total_node_count(self) -> int:
         """

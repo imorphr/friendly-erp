@@ -1,4 +1,5 @@
 import frappe
+from frappe import _
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
     BOMTreeNode, 
     BOMTreeItemNode, 
@@ -18,7 +19,7 @@ class BOMCreatorTreeNodeFactory:
         elif item.node_type == "SUB_ASSEMBLY":
             node = BOMCreatorTreeNodeFactory._create_sub_assembly_node(item)
         else:
-            frappe.throw(f"Unknown node type: {item.node_type}")
+            frappe.throw(_("Unknown node type: {0}").format(item.node_type))
 
         node.node_unique_id = item.node_unique_id
         node.sequence = item.sequence
@@ -31,7 +32,7 @@ class BOMCreatorTreeNodeFactory:
         if item.node_type == "OPERATION":
             node = BOMCreatorTreeNodeFactory._create_operation_node(item)
         else:
-            frappe.throw(f"Unknown node type: {item.node_type}")
+            frappe.throw(_("Unknown node type: {0}").format(item.node_type))
 
         node.node_unique_id = item.node_unique_id
         node.sequence = item.sequence
@@ -219,7 +220,7 @@ class BOMTreeNodeToCreatorItemConverter:
         node: BOMTreeItemNode
     ) -> MultilevelBOMCreatorItemNode:
         if node.node_type not in ("ITEM", "SUB_ASSEMBLY"):
-            frappe.throw("Invalid node type for item conversion")
+            frappe.throw(_("Invalid node type for item conversion"))
 
         doc: MultilevelBOMCreatorItemNode = frappe.new_doc("Multilevel BOM Creator Item Node")
 
@@ -246,7 +247,7 @@ class BOMTreeNodeToCreatorItemConverter:
         node: BOMTreeSubAssemblyNode,
     ) -> MultilevelBOMCreatorItemNode:
         if node.node_type != "SUB_ASSEMBLY":
-            frappe.throw("Invalid node type for sub-assembly conversion")
+            frappe.throw(_("Invalid node type for sub-assembly conversion"))
 
         doc = BOMTreeNodeToCreatorItemConverter.convert_item_node(node)
         doc.bom_no = node.bom_no
@@ -264,7 +265,7 @@ class BOMTreeNodeToCreatorItemConverter:
         node: BOMTreeOperationNode
     ) -> MultilevelBOMCreatorOperationNode:
         if node.node_type != "OPERATION":
-            frappe.throw("Invalid node type for operation conversion")
+            frappe.throw(_("Invalid node type for operation conversion"))
 
         doc: MultilevelBOMCreatorOperationNode = frappe.new_doc("Multilevel BOM Creator Operation Node")
 

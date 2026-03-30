@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import Dict, List
 import frappe
+from frappe import _
 
 from friendly_erp.friendly_erp.doctype.multilevel_bom_creator.bom_tree.bom_tree import (
     BOMTree,
@@ -36,7 +37,7 @@ class BOMCreatorTreeBuilder:
     """
     def __init__(self, bom_creator_doc, project_existing_bom_nodes: bool = False):
         if not bom_creator_doc:
-            frappe.throw("BOM Creator document is required to build BOM Tree.")
+            frappe.throw(_("BOM Creator document is required to build BOM Tree."))
         self.bom_creator_doc = bom_creator_doc
         self.project_existing_bom_nodes = project_existing_bom_nodes
         self.creator_nodes: list[MultilevelBOMCreatorItemNode |
@@ -58,7 +59,7 @@ class BOMCreatorTreeBuilder:
 
     def create(self) -> BOMTree:
         if self.tree:
-            frappe.throw("Tree is already built.")
+            frappe.throw(_("Tree is already built."))
         self.tree = BOMTree()
         self._build_tree()
         return self.tree
@@ -68,11 +69,12 @@ class BOMCreatorTreeBuilder:
             item for item in self.creator_nodes if not item.parent_node_unique_id]
         if len(roots) != 1:
             frappe.throw(
-                "BOM Creator document must have exactly one root item.")
+                _("BOM Creator document must have exactly one root item.")
+            )
 
         root_item = roots[0]
         if root_item.node_type != "SUB_ASSEMBLY":
-            frappe.throw("Root node type should be sub-assembly.")
+            frappe.throw(_("Root node type should be sub-assembly."))
         root_node = BOMCreatorTreeNodeFactory.create_from_multilevel_bom_creator_item(
             root_item, self.tree)
         self.tree.set_root(root_node)
@@ -146,11 +148,11 @@ class OperationTreeBuilder:
 
     def create(self) -> BOMTree:
         if self.tree:
-            frappe.throw("Tree is already built.")
+            frappe.throw(_("Tree is already built."))
         self.tree = BOMTree()
         operation = frappe.get_doc("Operation", self.operation)
         if not operation:
-            frappe.throw(f"Operation '{self.operation}' not found.")
+            frappe.throw(_("Operation '{0}' not found.").format(self.operation))
         op_node = BOMTreeOperationNode(
             tree_ref=self.tree,
             node_unique_id=frappe.generate_hash(), # Using a GUID longer than 10 characters to reduce the risk of ID collisions
@@ -192,7 +194,7 @@ class ExistingBOMTreeBuilder:
 
     def create(self) -> BOMTree:
         if self.tree:
-            frappe.throw("Tree is already built.")
+            frappe.throw(_("Tree is already built."))
         self.tree = BOMTree()
         self._traverse_bom(self.bom_no, None, 0, None)
         return self.tree
@@ -200,7 +202,7 @@ class ExistingBOMTreeBuilder:
     def _traverse_bom(self, bom_no: str, parent_node: BOMTreeNode, sequence: int, bom_item):
         bom = frappe.get_doc("BOM", bom_no)
         if not bom:
-            frappe.throw(f"BOM '{bom_no}' not found.")
+            frappe.throw(_("BOM '{0}' not found.").format(bom_no))
 
         node = ExistingBOMTreeNodeFactory.create_from_bom(
             bom, sequence, self.tree, bom_item)

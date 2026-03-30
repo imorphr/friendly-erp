@@ -52,13 +52,15 @@ class MultilevelBOMCreatorNameGenerator:
     def get_next_version_index(existing_creators: list[str]) -> int:
         # split by "/" and "-"
         delimiters = ["/", "-"]
-        pattern = "|".join(map(re.escape, delimiters))
+        pattern = "|".join([re.escape(delimiter) for delimiter in delimiters])
         creator_parts = [re.split(pattern, creator_name)
                        for creator_name in existing_creators]
 
         # filter out BOMs that do not follow the following formats: BOM/ITEM/001, BOM-ITEM-001
-        valid_creator_parts = list(
-            filter(lambda x: len(x) > 1 and x[-1], creator_parts))
+        valid_creator_parts = [
+            creator_part for creator_part in creator_parts
+            if len(creator_part) > 1 and creator_part[-1]
+        ]
 
         # extract the current index from the BOM parts
         if valid_creator_parts:
