@@ -132,7 +132,11 @@ function set_plc_conversion_rate_from_price_list(frm) {
                 frm.set_df_property("plc_conversion_rate", "description", "");
             } else {
                 frm.set_value("plc_conversion_rate", null);
-                frm.set_df_property("plc_conversion_rate", "description", `1 ${price_list_currency} = [?] ${company_currency}`);
+                const description = __(
+                    "1 {0} = [?] {1}",
+                    [price_list_currency, company_currency]
+                );
+                frm.set_df_property("plc_conversion_rate", "description", description);
             }
         });
 }
@@ -543,12 +547,12 @@ class BOMTreeHelper {
             {
                 name: "Batch Size",
                 id: "own_batch_size",
-                width: 105
+                width: 100
             },
             {
                 name: "UOM",
                 id: "uom",
-                width: 90
+                width: 75
             },
             {
                 name: "Comp. Qty",
@@ -558,17 +562,17 @@ class BOMTreeHelper {
             {
                 name: "Req. Qty",
                 id: "total_required_qty",
-                width: 100
+                width: 90
             },
             {
                 name: "Time",
                 id: "time_in_mins",
-                width: 100
+                width: 75
             },
             {
                 name: "Req. Time",
                 id: "total_required_time_in_mins",
-                width: 105
+                width: 95
             },
             {
                 name: "Unit Rate",
@@ -715,8 +719,7 @@ class BOMTreeHelper {
             - fixedWidthSum
             - SCROLLBAR_WIDTH;
 
-        // Safety floor
-        columns[0].width = Math.max(300, remaining);
+        columns[0].width = Math.max(100, remaining);
     }
 
 
