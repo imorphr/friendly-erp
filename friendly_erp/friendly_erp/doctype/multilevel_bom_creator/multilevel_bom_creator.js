@@ -769,9 +769,24 @@ class BOMTreeHelper {
 
         // Move menu to body so it can overflow table cell
         $('body').append($menu);
+        $menu.addClass('show');
 
+        this.render_row_context_menu($menu);
+        this.position_row_context_menu($menu, $trigger);
+
+        // Outside click → close menu
+        setTimeout(() => { // defer to prevent immediate closure
+            $(document).off('click.bomDropdown').on('click.bomDropdown', function (e) {
+                if (!$(e.target).closest($menu).length && !$(e.target).is($trigger)) {
+                    self.close_current_menu();
+                }
+            });
+        }, 0);
+    }
+
+    position_row_context_menu($menu, $trigger) {
         const GAP = 4;
-        const SHIFT_LEFT = 30;
+        const VIEWPORT_PADDING = 8;
 
         const rect = $trigger[0].getBoundingClientRect();
         const viewportHeight = window.innerHeight;
@@ -794,23 +809,21 @@ class BOMTreeHelper {
             });
         }
 
+        const menuWidth = $menu.outerWidth();
+        // Right-align with trigger; action column sits at the table edge
+        let left = rect.right - menuWidth;
+        left = Math.max(
+            VIEWPORT_PADDING,
+            Math.min(left, window.innerWidth - menuWidth - VIEWPORT_PADDING)
+        );
+
         $menu.css({
             position: 'fixed',
             top: top,
-            left: rect.left - SHIFT_LEFT,
+            left: left,
+            right: 'auto',
             zIndex: 9999
-        }).addClass('show');
-
-        this.render_row_context_menu($menu);
-
-        // Outside click → close menu
-        setTimeout(() => { // defer to prevent immediate closure
-            $(document).off('click.bomDropdown').on('click.bomDropdown', function (e) {
-                if (!$(e.target).closest($menu).length && !$(e.target).is($trigger)) {
-                    self.close_current_menu();
-                }
-            });
-        }, 0);
+        });
     }
 
     render_row_context_menu($menu) {
