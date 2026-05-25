@@ -83,12 +83,12 @@ required_apps = ["erpnext"]
 # ------------
 
 # before_install = "friendly_erp.install.before_install"
-# after_install = "friendly_erp.install.after_install"
+after_install = "friendly_erp.setup.install.after_install"
 
 # Uninstallation
 # ------------
 
-# before_uninstall = "friendly_erp.uninstall.before_uninstall"
+before_uninstall = "friendly_erp.setup.uninstall.before_uninstall"
 # after_uninstall = "friendly_erp.uninstall.after_uninstall"
 
 # Integration Setup

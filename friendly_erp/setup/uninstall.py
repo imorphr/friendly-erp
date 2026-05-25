@@ -1,0 +1,5 @@
+from friendly_erp.setup.workspace import remove_multilevel_bom_creator_from_manufacturing_workspace
+
+
+def before_uninstall():
+    remove_multilevel_bom_creator_from_manufacturing_workspace()
