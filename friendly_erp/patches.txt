@@ -4,3 +4,5 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+friendly_erp.patches.v16_0.add_multilevel_bom_creator_to_manufacturing_workspace
+friendly_erp.patches.v16_0.add_multilevel_bom_creator_to_manufacturing_sidebar
